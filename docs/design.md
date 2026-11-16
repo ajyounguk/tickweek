@@ -62,7 +62,7 @@ The current week's score and streaks are "in progress" until the week closes.
 ## Screens
 
 1. **This week** (main screen, phone-first): rows = targets, columns = Mon–Sun, big tap cells, today highlighted.
-   Tick targets toggle on tap; number targets open a number pad (clear = 0 = not done). Shows the week score, the
+   Tick targets toggle on tap; number targets open a number box with the phone keyboard (clear = 0 = not done). Shows the week score, the
    N/7 progress per target and the weigh-in box, then a compact **Streaks** card ("15 days in a row"); the full
    streak detail lives on History under Achievements.
    Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.

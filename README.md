@@ -43,7 +43,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 **Your daily check-in.** Open it once a day, ideally in the evening, and tick what you did.
 
-- Tap a box to tick a target. Number targets (running, weights) open a keypad for miles or minutes.
+- Tap a box to tick a target. Number targets (running, weights) ask for the miles or minutes.
 - Missed a day? Fill it in any time this week. Last week stays open until you weigh in.
 - The **Star day** row lights up ★ when you've hit every daily target that day.
 - Underneath: your week score, the Monday weigh-in and the streaks you're keeping alive.
@@ -137,7 +137,7 @@ docker run -d --name tickweek \
   -p 3000:3000 \
   -v /path/to/tickweek-data:/data \
   -e TZ=Europe/London \
-  ghcr.io/ajyounguk/tickweek:0.4.0
+  ghcr.io/ajyounguk/tickweek:0.4.1
 ```
 
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and
