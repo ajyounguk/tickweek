@@ -182,13 +182,29 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .tile .tv { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 2px 0; }
 .tile .ts { font-size: 12px; color: var(--muted); }
 
-/* ---------- history: weeks grid ---------- */
-.wrow { display: grid; grid-template-columns: 64px repeat(7, minmax(0, 1fr)) 34px; gap: 3px; align-items: center;
-  padding: 4px 0; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
+/* ---------- history: weight hero ---------- */
+.hero { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 4px; }
+.hero-kg { font-size: 30px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hero-lost { margin-left: auto; text-align: right; }
+.hero-lost b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.hero-lost span { font-size: 12px; color: var(--muted); }
+.delta.same { color: var(--muted); }
+
+/* ---------- history: month (week rows) ---------- */
+.cardnav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cardnav h2 { flex: 1; text-align: center; margin: 0; }
+.cardnav .iconbtn { width: 34px; height: 34px; font-size: 20px; line-height: 1; padding-bottom: 2px; }
+.msum { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.msum b { color: var(--text); }
+.msum b.delta.down { color: var(--accent); }
+.msum b.delta.up { color: var(--warn); }
+.wrow { display: grid; grid-template-columns: 68px repeat(7, minmax(0, 1fr)) 34px; gap: 3px; align-items: center;
+  padding: 5px 0; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
 .wrow.whead { border-top: 0; font-size: 12px; color: var(--muted); text-align: center; padding-top: 0; }
-.wdate { font-size: 12px; line-height: 1.25; font-variant-numeric: tabular-nums; }
-.wdate b { display: block; font-size: 13px; }
-.wdate span { color: var(--muted); white-space: nowrap; }
+.wdate { font-size: 11px; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wdate span { display: block; color: var(--muted); }
+.wdate b { display: block; font-size: 14px; }
+.wdate .delta { font-size: 11px; font-weight: 600; }
 .wcell { aspect-ratio: 1 / 1; border-radius: 7px; background: var(--surface-2); display: flex; flex-wrap: wrap;
   align-content: center; justify-content: center; gap: 2px; padding: 3px; min-width: 0; }
 .wcell i { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent); }
@@ -197,6 +213,24 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .wcell.future { background: var(--locked); }
 .wscore { text-align: right; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 .wscore .sweep { display: block; color: var(--accent); font-size: 12px; line-height: 1; }
+.wscore.live { color: var(--muted); }
+.wscore .sofar { display: block; font-size: 10px; font-weight: 500; line-height: 1; white-space: nowrap; }
+
+/* ---------- history: year ---------- */
+.ytotal { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.ytotal .tl { font-size: 13px; color: var(--muted); }
+.ybig { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ybig.down { color: var(--accent); }
+.ybig.up { color: var(--warn); }
+.yrow { display: grid; grid-template-columns: 40px 1fr 1.2fr 52px; gap: 8px; align-items: center; width: 100%;
+  padding: 9px 4px; border: 0; border-top: 1px solid var(--line); background: none; text-align: right; cursor: pointer;
+  font-variant-numeric: tabular-nums; font-size: 14px; color: var(--text); }
+.yrow:hover { background: var(--surface-2); }
+.yrow .ym { text-align: left; font-weight: 600; }
+.yrow .ych { font-weight: 700; }
+.yhead { border-top: 0; cursor: default; font-size: 11px; color: var(--muted); padding-bottom: 2px; }
+.yhead:hover { background: none; }
+.yhead .ych { font-weight: 400; }
 
 /* ---------- history: weight chart ---------- */
 .chart { position: relative; }
@@ -214,5 +248,3 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
   box-shadow: var(--shadow); border-radius: 8px; padding: 6px 9px; font-size: 12px; white-space: nowrap; }
 .chart .tip b { display: block; font-size: 15px; }
 .chart .tip span { display: block; color: var(--muted); }
-.wscore.live { color: var(--muted); }
-.wscore .sofar { display: block; font-size: 10px; font-weight: 500; line-height: 1; white-space: nowrap; }

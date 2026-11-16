@@ -23,7 +23,26 @@
 
   <section class="card">
     <h2>Weight</h2>
+    <div id="hero"></div>
     <div id="chart" class="chart"></div>
+  </section>
+
+  <section class="card" id="monthcard">
+    <div class="cardnav">
+      <button class="iconbtn" id="mprev" aria-label="Previous month">‹</button>
+      <h2 id="monthlabel"></h2>
+      <button class="iconbtn" id="mnext" aria-label="Next month">›</button>
+    </div>
+    <div id="month"></div>
+  </section>
+
+  <section class="card" id="yearcard">
+    <div class="cardnav">
+      <button class="iconbtn" id="yprev" aria-label="Previous year">‹</button>
+      <h2 id="yearlabel"></h2>
+      <button class="iconbtn" id="ynext" aria-label="Next year">›</button>
+    </div>
+    <div id="year"></div>
   </section>
 
   <section class="card">
@@ -34,12 +53,6 @@
   <section class="card">
     <h2>Targets</h2>
     <ul class="tlist" id="targetstats"></ul>
-  </section>
-
-  <section class="card" id="weekscard">
-    <h2>Weeks</h2>
-    <div class="small muted" id="legend" style="margin:-4px 0 8px"></div>
-    <div id="weeks"></div>
   </section>
 </main>
 <script type="module" src="/js/history.js"></script>

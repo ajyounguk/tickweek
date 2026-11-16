@@ -64,9 +64,12 @@ The current week's score and streaks are "in progress" until the week closes.
 1. **This week** (main screen, phone-first): rows = targets, columns = Mon–Sun, big tap cells, today highlighted.
    Tick targets toggle on tap; number targets open a number pad (clear = 0 = not done). Shows the week score, the
    N/7 progress per target, the weigh-in box on Monday, and the active streaks.
-2. **History**: the paper layout: one row per week (Monday date + weight), each day's cell showing a mini dot per
-   target, the week score and clean-sweep marker per row. Plus a **weight chart** (weekly weigh-ins, goal line) and
-   the records (personal best, longest streaks, totals).
+2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
+   weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,
+   full days) and that month's weeks in the paper layout: one row per week (Monday date, weigh-in in bold + change),
+   each day's cell showing a mini dot per target (ringed = full day), the week score and a ★ for a clean sweep; tap a
+   week to open it. Then a **year summary** (per month: weight at month end, change, average score). Records and
+   per-target streaks/totals below. *(Revised 16 Nov 2026: month switcher instead of one long list of weeks.)*
 3. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, and the corrections switch.
 
 ## Edit window
