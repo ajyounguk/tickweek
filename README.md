@@ -137,7 +137,7 @@ docker run -d --name tickweek \
   -p 3000:3000 \
   -v /path/to/tickweek-data:/data \
   -e TZ=Europe/London \
-  ghcr.io/ajyounguk/tickweek:0.3.0
+  ghcr.io/ajyounguk/tickweek:0.4.0
 ```
 
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and
