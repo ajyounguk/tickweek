@@ -98,7 +98,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
-  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: targets with reorder and edit, add a target, goal weight and corrections mode">
+  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: targets with reorder and edit, add a target, goal weight, corrections mode and data export">
 </picture>
 
 </td>
