@@ -28,14 +28,21 @@ function plural(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
 function renderRecords() {
   const r = data.records;
   const twoWeighIns = data.weighIns.length >= 2;
+  // Biggest drop between consecutive weekly weigh-ins (a missed week isn't a "weekly" drop).
+  let drop = null;
+  data.weighIns.forEach((w, i) => {
+    const prev = data.weighIns[i - 1];
+    if (prev && addDays(prev.monday_date, 7) === w.monday_date && prev.kg - w.kg > (drop?.kg ?? 0.02)) drop = { kg: prev.kg - w.kg, monday: w.monday_date };
+  });
+  $('achperiod').textContent = r.weeksTracked ? `all time · since ${ddmm(data.weeks.at(-1).monday)}` : '';
   $('records').replaceChildren(
-    tile('Personal best', r.personalBest ? formatStLb(r.personalBest.kg) : null, r.personalBest ? `w/c ${ddmm(r.personalBest.monday)}` : 'no weigh-ins yet'),
-    tile('Losing streak', twoWeighIns ? plural(data.losing.current, 'week') : null,
+    tile('Lowest weight', r.personalBest ? formatStLb(r.personalBest.kg) : null, r.personalBest ? `weighed ${ddmm(r.personalBest.monday)}` : 'no weigh-ins yet'),
+    tile('Weight-loss streak', twoWeighIns ? plural(data.losing.current, 'week') : null,
       twoWeighIns ? `best ${plural(data.losing.longest, 'week')}` : 'needs 2 weigh-ins'),
-    tile('Best week', r.bestScore != null ? `${r.bestScore}%` : null, r.bestScore != null ? 'closed weeks' : 'after week 1'),
-    tile('Clean sweeps', String(r.cleanSweeps), 'every goal met'),
-    tile('Star days', String(r.fullDays), 'every daily target done'),
-    tile('Weeks tracked', String(r.weeksTracked), r.weeksTracked ? `since ${ddmm(data.weeks.at(-1).monday)}` : null),
+    tile('Biggest weekly drop', drop ? `▼ ${formatStLb(drop.kg)}` : null, drop ? `w/c ${ddmm(drop.monday)}` : 'needs 2 weigh-ins in a row'),
+    tile('Perfect weeks 🏆', String(r.cleanSweeps), 'every target hit its goal'),
+    tile('Star days', `${r.fullDays}/${starDayCount()}`, 'every daily target done'),
+    tile('Total weeks tracked', String(r.weeksTracked), r.weeksTracked ? 'including this week' : null),
   );
 }
 
@@ -44,15 +51,18 @@ function renderTargets() {
   const list = data.targets.filter((t) => !t.archived || t.daysDone > 0);
   $('targetstats').replaceChildren(...(list.length ? list.map((t) => {
     const u = t.streakUnit === 'days' ? 'day' : 'week';
-    const total = t.kind === 'number' ? `${fmtNum(t.total)} ${t.unit ?? ''} · ${plural(t.daysDone, 'day')}` : plural(t.daysDone, 'day');
+    const goal = t.goal_days === 7 ? 'every day' : `${t.goal_days} days a week`;
+    const done = t.kind === 'number' && t.total
+      ? `${fmtNum(t.total)} ${t.unit ?? ''}`.trim()
+      : `${plural(t.daysDone, 'day')} done`;
     return h('li', {},
       h('div', { class: 'info' },
         h('div', {}, t.name, t.archived ? h('span', { class: 'pill', style: 'margin-left:6px' }, 'retired') : null),
-        h('div', { class: 'meta' }, `${t.goal_days}/7 · total ${total}`)),
+        h('div', { class: 'meta' }, `${goal} · ${done}`)),
       h('div', { style: 'text-align:right' },
         t.streak.longest
-          ? [h('div', { class: 'streak' + (t.streak.current >= 2 ? ' on' : '') }, plural(t.streak.current, u)),
-             h('div', { class: 'meta small muted' }, `best ${plural(t.streak.longest, u)}`)]
+          ? [h('div', { class: 'streak' + (t.streak.current >= 2 ? ' on' : '') }, `${plural(t.streak.current, u)} in a row`),
+             h('div', { class: 'meta small muted' }, `best ${t.streak.longest}`)]
           : h('div', { class: 'meta small muted' }, 'no streak yet')),
     );
   }) : [h('li', { class: 'muted' }, 'No targets yet.')]));
@@ -85,7 +95,16 @@ function periodStats(inPeriod, startIso) {
   const closed = data.weeks.filter((w) => inPeriod(w.monday) && !w.current && w.score != null);
   const score = closed.length ? Math.round(closed.reduce((a, w) => a + w.score, 0) / closed.length) : null;
   const fullDays = data.weeks.flatMap((w) => w.fullDays).filter(inPeriod).length;
-  return { endKg: ws.at(-1)?.kg ?? null, change, score, fullDays };
+  const starDayOf = starDayCount(inPeriod);
+  return { endKg: ws.at(-1)?.kg ?? null, change, score, fullDays, starDayOf };
+}
+
+/** Days that could have been a star day: tracked weeks with a 7/7 target, up to today. */
+function starDayCount(inPeriod = () => true) {
+  return data.weeks
+    .filter((w) => w.targets.some((t) => t.goal_days === 7))
+    .flatMap((w) => w.days)
+    .filter((d) => d <= data.today && inPeriod(d)).length;
 }
 
 // ---------- weight hero ----------
@@ -96,11 +115,13 @@ function renderHero() {
   const lost = latest.kg - first.kg;
   const kids = [h('div', { class: 'hero' },
     h('div', {},
+      h('div', { class: 'hero-label' }, 'Current weight'),
       h('div', { class: 'hero-kg' }, formatStLb(latest.kg)),
-      h('div', { class: 'small muted' }, `w/c ${ddmm(latest.monday_date)}`)),
+      h('div', { class: 'small muted' }, `weighed ${ddmm(latest.monday_date)}`)),
     pts.length > 1 ? h('div', { class: `hero-lost ${deltaClass(lost)}` },
+      h('div', { class: 'hero-label' }, `Since ${ddmm(first.monday_date)}`),
       h('b', {}, kgDelta(lost)),
-      h('span', {}, `since ${ddmm(first.monday_date)}`)) : null,
+      h('span', {}, lost < 0 ? 'lost' : lost > 0 ? 'gained' : 'no change')) : null,
   )];
   if (data.goalKg != null) {
     const toGo = Math.max(0, latest.kg - data.goalKg);
@@ -134,7 +155,7 @@ function renderMonth() {
   const summary = h('div', { class: 'msum' },
     h('span', {}, 'Weight ', st.change != null ? h('b', { class: `delta ${deltaClass(st.change)}` }, kgDelta(st.change)) : h('b', {}, '–')),
     h('span', {}, 'Score ', h('b', {}, st.score != null ? `${st.score}%` : '–')),
-    h('span', {}, 'Star days ', h('b', {}, String(st.fullDays))));
+    h('span', {}, 'Star days ', h('b', {}, `${st.fullDays}/${st.starDayOf}`)));
   const dots = h('div', { class: 'small muted', style: 'margin-bottom:6px' },
     cur?.targets.length ? `Dots: ${cur.targets.map((t) => t.name).join(' · ')}` : '');
 
@@ -160,13 +181,13 @@ function renderMonth() {
       ...cells,
       h('div', { class: 'wscore' + (w.current ? ' live' : '') },
         w.score != null ? `${w.score}` : '–',
-        w.cleanSweep ? h('span', { class: 'sweep', title: 'Clean sweep: every goal met' }, '🏆') : w.current ? h('span', { class: 'sofar' }, 'so far') : null),
+        w.cleanSweep ? h('span', { class: 'sweep', title: 'Perfect week: every target hit its goal' }, '🏆') : w.current ? h('span', { class: 'sofar' }, 'so far') : null),
     );
   });
   const key = h('div', { class: 'small muted wkey' },
     h('span', {}, h('b', {}, '%'), ' week score'),
     h('span', {}, h('i', { class: 'wcell full' }), ' star day'),
-    h('span', {}, h('b', { class: 'sweep' }, '🏆'), ' every goal met'));
+    h('span', {}, h('b', { class: 'sweep' }, '🏆'), ' perfect week'));
 
   $('month').replaceChildren(summary, dots, ...(rows.length ? [head, ...rows, key] : [h('div', { class: 'muted small' }, 'Nothing tracked this month.')]));
 }
@@ -198,7 +219,7 @@ function renderYear() {
   const yr = String(year);
   const yst = periodStats((iso) => iso.startsWith(yr), `${yr}-01-01`);
   const top = h('div', { class: 'ytotal' },
-    h('div', { class: 'tl' }, 'This year'),
+    h('div', { class: 'tl' }, yst.change == null ? 'This year' : yst.change < -0.02 ? 'Lost this year' : yst.change > 0.02 ? 'Gained this year' : 'No change this year'),
     h('div', { class: `ybig delta ${yst.change != null ? deltaClass(yst.change) : ''}` }, yst.change != null ? kgDelta(yst.change) : '–'));
   const head = h('div', { class: 'yrow yhead' }, h('span', { class: 'ym' }, ''), h('span', { class: 'ykg' }, 'Weight'), h('span', { class: 'ych' }, 'Change'), h('span', { class: 'ysc' }, 'Score'));
   $('year').replaceChildren(top, ...(rows.length ? [head, ...rows] : [h('div', { class: 'muted small' }, 'Nothing tracked this year.')]));

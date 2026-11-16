@@ -189,6 +189,8 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .hero { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 4px; }
 .hero-kg { font-size: 30px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hero-lost { margin-left: auto; text-align: right; }
+.hero-label { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.subhead { font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 0 2px; }
 .hero-lost b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
 .hero-lost span { font-size: 12px; color: var(--muted); }
 .delta.same { color: var(--muted); }

@@ -27,10 +27,14 @@ db.transaction(() => {
     repo.ensureWeek(monday);
     const targets = repo.weekTargets(monday);
     const skill = 0.6 + 0.35 * ((WEEKS - w) / WEEKS); // gets better over time
-    for (const date of weekDates(monday).filter((d) => d <= today)) {
+    const perfect = w === 1; // last week: every goal met, so the demo shows a clean sweep 🏆
+    const spread = [0, 2, 4, 6, 1, 3, 5]; // which weekdays an N/7 target lands on in the perfect week
+    for (const [i, date] of weekDates(monday).entries()) {
+      if (date > today) break;
       for (const t of targets) {
         const p = t.goal_days === 7 ? skill : (t.goal_days / 7) * (0.8 + skill * 0.5);
-        if (rand() < p) repo.setEntry(date, t.id, t.kind === 'tick' ? 1 : t.unit === 'miles' ? Math.round((2 + rand() * 3) * 10) / 10 : 30 + Math.round(rand() * 4) * 10);
+        const roll = rand();
+        if (perfect ? spread.slice(0, t.goal_days).includes(i) : roll < p) repo.setEntry(date, t.id, t.kind === 'tick' ? 1 : t.unit === 'miles' ? Math.round((2 + rand() * 3) * 10) / 10 : 30 + Math.round(rand() * 4) * 10);
       }
     }
     if (w === 7) continue; // a missed weigh-in, to show the gap
