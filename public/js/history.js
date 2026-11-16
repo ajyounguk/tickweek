@@ -3,16 +3,18 @@ import { KG_PER_LB } from '/js/weight.js';
 
 const $ = (id) => document.getElementById(id);
 const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
-const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 let data;
 
 async function load() {
   try { data = await api('GET', '/api/history'); }
   catch (e) { return toast(e.message); }
+  index();
+  renderHero();
+  renderChart();
+  renderMonth();
+  renderYear();
   renderRecords();
   renderTargets();
-  renderWeeks();
-  renderChart();
   // Content arrives after the browser's own #anchor jump, so redo it once rendered (e.g. /history#weekscard).
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
@@ -26,16 +28,14 @@ function plural(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
 function renderRecords() {
   const r = data.records;
   const twoWeighIns = data.weighIns.length >= 2;
-  const lost = twoWeighIns ? r.startKg - r.latestKg : null;
   $('records').replaceChildren(
     tile('Personal best', r.personalBest ? formatStLb(r.personalBest.kg) : null, r.personalBest ? `w/c ${ddmm(r.personalBest.monday)}` : 'no weigh-ins yet'),
-    tile('Lost so far', lost != null ? (lost >= 0 ? formatStLb(lost) : `+${formatStLb(-lost)}`) : null,
-      r.startKg != null ? (twoWeighIns ? `from ${formatStLb(r.startKg)}` : 'needs 2 weigh-ins') : 'needs 2 weigh-ins'),
     tile('Losing streak', twoWeighIns ? plural(data.losing.current, 'week') : null,
       twoWeighIns ? `best ${plural(data.losing.longest, 'week')}` : 'needs 2 weigh-ins'),
     tile('Best week', r.bestScore != null ? `${r.bestScore}%` : null, r.bestScore != null ? 'closed weeks' : 'after week 1'),
-    tile('Clean sweeps', String(r.cleanSweeps), plural(r.weeksTracked, 'week') + ' tracked'),
+    tile('Clean sweeps', String(r.cleanSweeps), 'every goal met'),
     tile('Full days', String(r.fullDays), 'all daily targets done'),
+    tile('Weeks tracked', String(r.weeksTracked), r.weeksTracked ? `since ${ddmm(data.weeks.at(-1).monday)}` : null),
   );
 }
 
@@ -58,34 +58,147 @@ function renderTargets() {
   }) : [h('li', { class: 'muted' }, 'No targets yet.')]));
 }
 
-// ---------- weeks (the paper layout) ----------
-function renderWeeks() {
-  const cur = data.weeks.find((w) => w.current) ?? data.weeks[0];
-  $('legend').textContent = cur?.targets.length ? `Dots: ${cur.targets.map((t) => t.name).join(' · ')}` : '';
+// ---------- date helpers (UTC-midnight ISO dates, like src/dates.js) ----------
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const mondayOf = (iso) => addDays(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7));
+const shiftMonth = (ym, n) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); };
+const kgDelta = (diff) => (Math.abs(diff) < 0.02 ? '±0' : `${diff < 0 ? '▼' : '▲'} ${formatStLb(Math.abs(diff))}`);
+const deltaClass = (diff) => (Math.abs(diff) < 0.02 ? 'same' : diff < 0 ? 'down' : 'up');
+/** '14st 11.5': compact st/lb for tight columns. */
+const shortStLb = (kg) => formatStLb(kg).replace(' st ', 'st ').replace(' lb', '');
 
-  const head = h('div', { class: 'wrow whead' }, h('div', {}), ...DOW.map((d) => h('div', {}, d)), h('div', {}, '%'));
-  const rows = data.weeks.map((w) => {
+let weekMap = new Map();   // monday → week
+let weighMap = new Map();  // monday → weigh-in
+function index() {
+  weekMap = new Map(data.weeks.map((w) => [w.monday, w]));
+  weighMap = new Map(data.weighIns.map((w) => [w.monday_date, w]));
+}
+/** Last weigh-in strictly before a date. */
+const lastWeighInBefore = (iso) => [...data.weighIns].reverse().find((w) => w.monday_date < iso) ?? null;
+
+/** Weight change over a period: last weigh-in in it vs the last one before it (or its first). */
+function periodStats(inPeriod, startIso) {
+  const ws = data.weighIns.filter((w) => inPeriod(w.monday_date));
+  const base = lastWeighInBefore(startIso) ?? ws[0];
+  const change = ws.length && base && base !== ws.at(-1) ? ws.at(-1).kg - base.kg : null;
+  const closed = data.weeks.filter((w) => inPeriod(w.monday) && !w.current && w.score != null);
+  const score = closed.length ? Math.round(closed.reduce((a, w) => a + w.score, 0) / closed.length) : null;
+  const fullDays = data.weeks.flatMap((w) => w.fullDays).filter(inPeriod).length;
+  return { endKg: ws.at(-1)?.kg ?? null, change, score, fullDays };
+}
+
+// ---------- weight hero ----------
+function renderHero() {
+  const pts = data.weighIns;
+  if (!pts.length) return $('hero').replaceChildren();
+  const latest = pts.at(-1), first = pts[0];
+  const lost = latest.kg - first.kg;
+  const kids = [h('div', { class: 'hero' },
+    h('div', {},
+      h('div', { class: 'hero-kg' }, formatStLb(latest.kg)),
+      h('div', { class: 'small muted' }, `w/c ${ddmm(latest.monday_date)}`)),
+    pts.length > 1 ? h('div', { class: `hero-lost ${deltaClass(lost)}` },
+      h('b', {}, kgDelta(lost)),
+      h('span', {}, `since ${ddmm(first.monday_date)}`)) : null,
+  )];
+  if (data.goalKg != null) {
+    const toGo = Math.max(0, latest.kg - data.goalKg);
+    const span = first.kg - data.goalKg;
+    const pct = span > 0 ? Math.min(100, Math.max(0, ((first.kg - latest.kg) / span) * 100)) : toGo === 0 ? 100 : 0;
+    kids.push(h('div', { style: 'margin:10px 0 4px' },
+      h('div', { class: 'row small', style: 'margin-bottom:5px' },
+        h('span', {}, toGo < 0.02 ? 'Goal reached!' : h('b', {}, `${formatStLb(toGo)} to go`)),
+        h('span', { class: 'muted', style: 'margin-left:auto' }, `goal ${formatStLb(data.goalKg)}`)),
+      h('div', { class: 'bar' }, h('i', { style: `width:${pct}%` }))));
+  }
+  $('hero').replaceChildren(...kids);
+}
+
+// ---------- month calendar ----------
+let month = null; // 'YYYY-MM'
+const firstMonth = () => (data.weeks.length ? data.weeks.at(-1).monday.slice(0, 7) : data.today.slice(0, 7));
+
+function renderMonth() {
+  month ??= data.today.slice(0, 7);
+  const [y, m] = month.split('-').map(Number);
+  $('monthlabel').textContent = `${MONTHS[m - 1]} ${y}`;
+  $('mprev').disabled = month <= firstMonth();
+  $('mnext').disabled = month >= data.today.slice(0, 7);
+
+  // A week belongs to the month its Monday is in; oldest first, like the paper sheet.
+  const weeks = data.weeks.filter((w) => w.monday.slice(0, 7) === month).reverse();
+  const cur = data.weeks.find((w) => w.current) ?? data.weeks[0];
+
+  const st = periodStats((iso) => iso.slice(0, 7) === month, month + '-01');
+  const summary = h('div', { class: 'msum' },
+    h('span', {}, 'Weight ', st.change != null ? h('b', { class: `delta ${deltaClass(st.change)}` }, kgDelta(st.change)) : h('b', {}, '–')),
+    h('span', {}, 'Score ', h('b', {}, st.score != null ? `${st.score}%` : '–')),
+    h('span', {}, 'Full days ', h('b', {}, String(st.fullDays))));
+  const dots = h('div', { class: 'small muted', style: 'margin-bottom:6px' },
+    cur?.targets.length ? `Dots: ${cur.targets.map((t) => t.name).join(' · ')}` : '');
+
+  const head = h('div', { class: 'wrow whead' }, h('div', {}), ...['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => h('div', {}, d)), h('div', {}, '%'));
+  const rows = weeks.map((w) => {
     const full = new Set(w.fullDays);
     const cells = w.days.map((d) => {
       const future = d > data.today;
-      const dots = w.targets.map((t) => h('i', { class: (w.entries[t.id]?.[d] > 0 ? 'on' : '') }));
-      const doneNames = w.targets.filter((t) => w.entries[t.id]?.[d] > 0).map((t) => t.name);
+      const done = w.targets.filter((t) => w.entries[t.id]?.[d] > 0);
       return h('div', {
         class: 'wcell' + (full.has(d) ? ' full' : '') + (future ? ' future' : ''),
-        title: `${ddmm(d)}: ${future ? 'not yet' : doneNames.length ? doneNames.join(', ') : 'nothing ticked'}`,
-      }, future ? null : dots);
+        title: `${ddmm(d)}: ${future ? 'not yet' : done.length ? done.map((t) => t.name).join(', ') : 'nothing ticked'}`,
+      }, future ? null : w.targets.map((t) => h('i', { class: w.entries[t.id]?.[d] > 0 ? 'on' : '' })));
     });
     const wi = w.weighIn;
+    const prev = wi ? weighMap.get(addDays(w.monday, -7)) : null;
+    const diff = wi && prev ? wi.kg - prev.kg : null;
     return h('a', { class: 'wrow', href: w.current ? '/' : `/?week=${w.monday}` },
-      h('div', { class: 'wdate' }, h('b', {}, w.ddmm), h('span', {}, wi ? formatStLb(wi.kg).replace(' lb', '') : '—', wi?.late ? '*' : '')),
+      h('div', { class: 'wdate' },
+        h('span', {}, w.ddmm),
+        h('b', {}, wi ? shortStLb(wi.kg) : '—', wi?.late ? '*' : ''),
+        diff != null ? h('span', { class: `delta ${deltaClass(diff)}` }, kgDelta(diff).replace(' lb', '')) : null),
       ...cells,
-      h('div', { class: 'wscore' + (w.current ? ' live' : ''), title: w.current ? 'Week score so far (week in progress)' : 'Week score' },
+      h('div', { class: 'wscore' + (w.current ? ' live' : '') },
         w.score != null ? `${w.score}` : '–',
         w.cleanSweep ? h('span', { class: 'sweep', title: 'Clean sweep' }, '★') : w.current ? h('span', { class: 'sofar' }, 'so far') : null),
     );
   });
-  $('weeks').replaceChildren(head, ...rows,
-    h('div', { class: 'small muted', style: 'margin-top:8px' }, '% = week score: days ticked ÷ days the goals ask for (counted against the whole week, so the current week climbs as it goes) · ★ clean sweep · ringed day = full day · weight in st lb, * = late weigh-in. Tap a week to open it.'));
+  const key = h('div', { class: 'small muted', style: 'margin-top:8px' }, '% week score · ring = full day · ★ every goal met');
+
+  $('month').replaceChildren(summary, dots, ...(rows.length ? [head, ...rows, key] : [h('div', { class: 'muted small' }, 'Nothing tracked this month.')]));
+}
+
+// ---------- year ----------
+let year = null;
+function renderYear() {
+  year ??= Number(data.today.slice(0, 4));
+  const thisMonth = data.today.slice(0, 7);
+  $('yearlabel').textContent = String(year);
+  $('yprev').disabled = year <= Number(firstMonth().slice(0, 4));
+  $('ynext').disabled = year >= Number(data.today.slice(0, 4));
+
+  const rows = [];
+  for (let m = 12; m >= 1; m--) {
+    const ym = `${year}-${String(m).padStart(2, '0')}`;
+    if (ym > thisMonth || ym < firstMonth()) continue;
+    const st = periodStats((iso) => iso.slice(0, 7) === ym, ym + '-01');
+    rows.push(h('button', {
+      class: 'yrow', type: 'button', title: `Show ${MONTHS[m - 1]}`,
+      onclick: () => { month = ym; renderMonth(); $('monthcard').scrollIntoView({ behavior: 'smooth' }); },
+    },
+      h('span', { class: 'ym' }, MONTHS[m - 1].slice(0, 3)),
+      h('span', { class: 'ykg' }, st.endKg != null ? shortStLb(st.endKg) : '—'),
+      h('span', { class: `ych delta ${st.change != null ? deltaClass(st.change) : ''}` }, st.change != null ? kgDelta(st.change) : '–'),
+      h('span', { class: 'ysc' }, st.score != null ? `${st.score}%` : '–')));
+  }
+
+  const yr = String(year);
+  const yst = periodStats((iso) => iso.startsWith(yr), `${yr}-01-01`);
+  const top = h('div', { class: 'ytotal' },
+    h('div', { class: 'tl' }, 'This year'),
+    h('div', { class: `ybig delta ${yst.change != null ? deltaClass(yst.change) : ''}` }, yst.change != null ? kgDelta(yst.change) : '–'));
+  const head = h('div', { class: 'yrow yhead' }, h('span', { class: 'ym' }, ''), h('span', { class: 'ykg' }, 'Weight'), h('span', { class: 'ych' }, 'Change'), h('span', { class: 'ysc' }, 'Score'));
+  $('year').replaceChildren(top, ...(rows.length ? [head, ...rows] : [h('div', { class: 'muted small' }, 'Nothing tracked this year.')]));
 }
 
 // ---------- weight chart (inline SVG, single series, goal reference line, crosshair tooltip) ----------
@@ -187,6 +300,11 @@ function renderChart() {
     else if (e.key === 'ArrowRight') show(Math.min(pts.length - 1, (idx ?? -1) + 1));
   });
 }
+
+$('mprev').addEventListener('click', () => { month = shiftMonth(month, -1); renderMonth(); });
+$('mnext').addEventListener('click', () => { month = shiftMonth(month, 1); renderMonth(); });
+$('yprev').addEventListener('click', () => { year -= 1; renderYear(); });
+$('ynext').addEventListener('click', () => { year += 1; renderYear(); });
 
 let resizeT;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => data && renderChart(), 150); });
