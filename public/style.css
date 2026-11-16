@@ -161,7 +161,8 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .switch input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* ---------- help ---------- */
-.help h1 { font-size: 24px; margin: 4px 0 4px; }
+.pagetitle { font-size: 24px; margin: 2px 0 12px; }
+.help .pagetitle { margin-bottom: 4px; }
 .help .lead { color: var(--muted); margin: 0 0 14px; }
 .help ul { margin: 0; padding-left: 18px; }
 .help li { margin: 6px 0; line-height: 1.45; }
