@@ -1,11 +1,11 @@
 # Build stage: install prod deps (build tools only as a fallback if better-sqlite3 has no prebuilt binary).
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev || (apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
     && npm ci --omit=dev --build-from-source)
 
-FROM node:24-slim
+FROM node:26-slim
 ENV NODE_ENV=production \
     TZ=Europe/London \
     APP_TZ=Europe/London \
