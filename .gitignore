@@ -1,0 +1,16 @@
+# personal data: never commit
+data/
+*.db
+*.db-wal
+*.db-shm
+exports/
+demo-data/
+*.csv
+
+node_modules/
+.DS_Store
+Thumbs.db
+
+# local-only notes: Claude rules, deployment specifics
+docs/local/
+CLAUDE.md

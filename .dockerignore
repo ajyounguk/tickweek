@@ -1,0 +1,9 @@
+node_modules
+data
+exports
+test
+docs
+.git
+.github
+*.md
+*.db*
