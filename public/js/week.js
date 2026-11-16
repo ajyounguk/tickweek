@@ -73,7 +73,7 @@ function renderScore() {
     h('div', { class: 'score' },
       h('span', { class: 'big' }, `${data.score}%`),
       h('span', { class: 'muted' }, 'week score'),
-      data.cleanSweep ? h('span', { class: 'badge', style: 'margin-left:auto' }, '🏆 Clean sweep') : data.current ? h('span', { class: 'pill', style: 'margin-left:auto' }, 'in progress') : null,
+      data.cleanSweep ? h('span', { class: 'badge', style: 'margin-left:auto' }, '🏆 Perfect week') : data.current ? h('span', { class: 'pill', style: 'margin-left:auto' }, 'in progress') : null,
     ),
     h('div', { class: 'bar' }, h('i', { style: `width:${data.score}%` })),
   );
@@ -110,9 +110,8 @@ function renderWeigh() {
   if (goal) kids.push(goal);
   if (data.personalBest && (data.prevWeighIn || data.losing.longest)) { // nothing to say until a second weigh-in
     kids.push(h('div', { class: 'wstats' },
-      h('span', {}, 'Losing streak ', h('b', {}, `${data.losing.current} wk${data.losing.current === 1 ? '' : 's'}`)),
-      h('span', {}, 'Best ', h('b', {}, `${data.losing.longest} wk${data.losing.longest === 1 ? '' : 's'}`)),
-      h('span', {}, 'PB ', h('b', {}, formatStLb(data.personalBest.kg))),
+      h('span', {}, 'Weight down ', h('b', {}, `${data.losing.current} wk${data.losing.current === 1 ? '' : 's'}`), ' in a row'),
+      h('span', {}, 'Lowest ', h('b', {}, formatStLb(data.personalBest.kg))),
     ));
   }
   card.replaceChildren(...kids);
@@ -184,10 +183,7 @@ function renderGrid() {
       h('div', { class: 'name' },
         t.name,
         t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
-        h('span', { style: 'margin-left:auto', class: 'row' },
-          data.current && t.streak > 0 ? h('span', { class: 'streak' + (t.streak >= 2 ? ' on' : ''), title: `Current streak: ${t.streak} ${t.streakUnit}` },
-            `${t.streak}${t.streakUnit === 'days' ? 'd' : 'wk'} streak`) : null,
-          h('span', { class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`)),
+        h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`),
       ),
       h('div', { class: 'grid' }, data.days.map((d) => cell(t, d))),
     );
