@@ -143,3 +143,28 @@ test('week carries streaks and weight records; history lists weeks newest first'
   assert.equal(h.weighIns.length, 3);
   assert.ok('records' in h && 'targets' in h);
 });
+
+test('export: JSON has everything, CSV has one row per day', async () => {
+  const j = await fetch(`${base}/api/export.json`);
+  assert.equal(j.status, 200);
+  assert.match(j.headers.get('content-disposition'), /^attachment; filename="?tickweek-2026-11-23\.json"?$/);
+  const data = await j.json();
+  assert.equal(data.weightUnit, 'kg');
+  assert.equal(data.targets.length, 5, 'retired targets included');
+  assert.deepEqual(data.weeks.map((w) => w.monday), ['2026-11-09', '2026-11-16', '2026-11-23']);
+  const running = data.targets.find((t) => t.name === 'Running');
+  assert.equal(data.weeks[0].targets.find((t) => t.target_id === running.id).goal_days, 3, 'per-week goals kept');
+  assert.deepEqual(data.weighIns.map((w) => [w.monday_date, w.kg, w.late]), [['2026-11-09', 92, true], ['2026-11-16', 90.2, true], ['2026-11-23', 89.9, false]]);
+  assert.equal(data.entries.length, 3);
+
+  const c = await fetch(`${base}/api/export.csv`);
+  assert.equal(c.status, 200);
+  assert.match(c.headers.get('content-type'), /^text\/csv/);
+  assert.match(c.headers.get('content-disposition'), /tickweek-2026-11-23\.csv/);
+  const lines = (await c.text()).replace(/^﻿/, '').trimEnd().split('\r\n');
+  assert.equal(lines[0], 'date,day,week,weigh-in kg,weigh-in st/lb,late,Intermittent fast,Running (miles),Weight training (min),Steps 10k,No snacks');
+  assert.equal(lines.length, 1 + 15, '09/11 to 23/11');
+  assert.equal(lines[1], '2026-11-09,Mon,2026-11-09,92,14 st 6.8 lb,yes,,,,,');
+  assert.equal(lines[7], '2026-11-15,Sun,2026-11-09,,,,1,,,,');
+  assert.equal(lines.at(-1), '2026-11-23,Mon,2026-11-23,89.9,14 st 2.2 lb,,,,,,');
+});

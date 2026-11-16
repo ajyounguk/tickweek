@@ -75,7 +75,9 @@ The current week's score and streaks are "in progress" until the week closes.
 3. **How it works** (`/help`): five short sections (ticking, Monday weigh-in and why, scores and rewards,
    History, Settings). Linked from a ? in the This week header, "Why Monday?" on the weigh-in card, and a
    "New here?" notice until the first weigh-in.
-4. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, and the corrections switch.
+4. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, the corrections switch, and
+   **Export**: CSV (one row per day: date, weigh-in in kg and st/lb, a column per target) and JSON (everything,
+   lossless). *(Added 16 Nov 2026.)*
 
 ## Edit window
 
