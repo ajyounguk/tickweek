@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [24, 26]   # 24 = current runtime; 26 = next base image (Dependabot)
+        node: [24, 26]   # 26 = the Docker base image; 24 = previous LTS (engines >=22)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
