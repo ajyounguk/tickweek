@@ -72,7 +72,10 @@ The current week's score and streaks are "in progress" until the week closes.
    each day's cell showing a mini dot per target (ringed = star day), the week score and a 🏆 for a perfect week; tap a
    week to open it. Then a **year summary** (per month: weight at month end, change, average score). An
    **Achievements** section (record tiles + each target's current/best streak and totals) below. *(Revised 16 Nov 2026: month switcher instead of one long list of weeks.)*
-3. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, and the corrections switch.
+3. **How it works** (`/help`): five short sections (ticking, Monday weigh-in and why, scores and rewards,
+   History, Settings). Linked from a ? in the This week header, "Why Monday?" on the weigh-in card, and a
+   "New here?" notice until the first weigh-in.
+4. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, and the corrections switch.
 
 ## Edit window
 
