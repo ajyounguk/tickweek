@@ -11,4 +11,7 @@ on the home server, 16 Nov).
 - **Real-phone pass** (on the LAN, before or right after M4): tap targets, number pad, Add to Home Screen (iOS goes
   full-screen over HTTP; Android Chrome may only make a browser shortcut without HTTPS), maybe swipe between weeks.
 - **Monday check**: first weekly backup run includes the app's data folder and the container comes back up.
+- **Parked (16 Nov): per-week goals.** Ideas: edit goals on the week itself (carry forward from the previous week),
+  fix a past week's goals in corrections mode, or a one-off week. Today Settings changes apply from this week on and
+  past weeks keep theirs. Revisit only if that proves limiting.
 - Confirm tickweek.com / tickweek.app availability (registrar search) if a domain is ever wanted.
