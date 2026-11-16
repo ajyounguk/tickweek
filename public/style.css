@@ -148,6 +148,8 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .tlist li { display: flex; align-items: center; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .tlist li:first-child { border-top: 0; }
 .tlist .info { flex: 1; min-width: 140px; }
+.tlist.compact li { padding: 8px 0; flex-wrap: nowrap; }
+.tlist.compact .info { min-width: 0; }
 .tlist .info .meta { font-size: 13px; color: var(--muted); }
 .tlist .iconbtn { width: 34px; height: 34px; }
 .form { display: grid; gap: 10px; }

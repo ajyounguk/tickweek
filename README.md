@@ -10,7 +10,7 @@ weight). It replaces a printed spreadsheet.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/screens-dark.png">
-  <img src="docs/screenshots/screens-light.png" alt="Tickweek screens: This week with ticks and streaks, History with the weight chart and records, and the week-by-week grid">
+  <img src="docs/screenshots/screens-light.png" alt="Tickweek screens: This week (tick table, star days, score, weigh-in), History (current weight, chart, month of weeks), the year summary and achievements, and Settings">
 </picture>
 
 <sub>Screenshots use made-up demo data (`npm run demo`).</sub>

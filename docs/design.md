@@ -63,8 +63,9 @@ The current week's score and streaks are "in progress" until the week closes.
 
 1. **This week** (main screen, phone-first): rows = targets, columns = Mon–Sun, big tap cells, today highlighted.
    Tick targets toggle on tap; number targets open a number pad (clear = 0 = not done). Shows the week score, the
-   N/7 progress per target and the weigh-in box. (Streaks live on History under Achievements.)
-   Order: the table first (with a Star day row at the bottom), then the week score, then the weigh-in.
+   N/7 progress per target and the weigh-in box, then a compact **Streaks** card ("15 days in a row"); the full
+   streak detail lives on History under Achievements.
+   Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,
    star days) and that month's weeks in the paper layout: one row per week (Monday date, weigh-in in bold + change),

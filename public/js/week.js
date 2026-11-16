@@ -52,6 +52,7 @@ function render() {
   renderScore();
   renderWeigh();
   renderGrid();
+  renderStreaks();
 }
 
 function renderNotices() {
@@ -203,6 +204,21 @@ function fullDayRow() {
         full.has(d.date) ? '★' : ''))));
 }
 
+/** Compact streaks for this week only: "Intermittent fast · 15 days in a row". Full detail lives on History. */
+function renderStreaks() {
+  const card = $('streakcard');
+  const live = data.current ? data.targets.filter((t) => t.streak > 0) : [];
+  card.classList.toggle('hidden', !live.length);
+  if (!live.length) return card.replaceChildren();
+  const unit = (t) => (t.streakUnit === 'days' ? (t.streak === 1 ? 'day' : 'days') : t.streak === 1 ? 'week' : 'weeks');
+  card.replaceChildren(
+    h('h2', {}, 'Streaks'),
+    h('ul', { class: 'tlist compact' }, live.map((t) => h('li', {},
+      h('div', { class: 'info' }, t.name),
+      h('div', { class: 'streak' + (t.streak >= 2 ? ' on' : '') }, `${t.streak} ${unit(t)} in a row`)))),
+  );
+}
+
 const weekTotal = (t) => Object.values(data.entries[t.id] ?? {}).reduce((a, v) => a + v, 0);
 
 function cell(t, d) {
@@ -252,6 +268,7 @@ function refreshSoon() {
       if (!editingWeigh) renderWeigh();
       renderScore();
       renderGrid();
+      renderStreaks();
     } catch { /* next load will catch up */ }
   }, 700);
 }
