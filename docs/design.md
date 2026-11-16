@@ -51,8 +51,8 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 | Term | Rule |
 |---|---|
 | **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets. Going over a goal doesn't add points |
-| **Clean sweep** | Every target reached its N/7 goal that week |
-| **Full day** | Every 7/7 target ticked on that day |
+| **Clean sweep** 🏆 | Every target reached its N/7 goal that week |
+| **Star day** ★ | Every 7/7 target ticked on that day (was "full day") |
 | **Target streak** | 7/7 targets: consecutive days done. N/7 targets: consecutive weeks where the goal was met |
 | **Losing streak** | Consecutive weekly weigh-ins, each lower than the one before. Same weight = neither extends nor breaks it; a missing week breaks it |
 | **Personal best** | Lowest weigh-in so far |
@@ -64,10 +64,11 @@ The current week's score and streaks are "in progress" until the week closes.
 1. **This week** (main screen, phone-first): rows = targets, columns = Mon–Sun, big tap cells, today highlighted.
    Tick targets toggle on tap; number targets open a number pad (clear = 0 = not done). Shows the week score, the
    N/7 progress per target, the weigh-in box on Monday, and the active streaks.
+   Order: the table first (with a Star day row at the bottom), then the week score, then the weigh-in.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,
-   full days) and that month's weeks in the paper layout: one row per week (Monday date, weigh-in in bold + change),
-   each day's cell showing a mini dot per target (ringed = full day), the week score and a ★ for a clean sweep; tap a
+   star days) and that month's weeks in the paper layout: one row per week (Monday date, weigh-in in bold + change),
+   each day's cell showing a mini dot per target (ringed = star day), the week score and a 🏆 for a clean sweep; tap a
    week to open it. Then a **year summary** (per month: weight at month end, change, average score). Records and
    per-target streaks/totals below. *(Revised 16 Nov 2026: month switcher instead of one long list of weeks.)*
 3. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, and the corrections switch.

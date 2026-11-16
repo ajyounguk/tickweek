@@ -41,7 +41,7 @@ Dev/demo only: `TICKWEEK_NOW` pins the clock (e.g. `2026-11-19T19:30:00Z`) for s
 | `src/app.js` | Express app + JSON API (`/api/week`, `/api/history`, `/api/entry`, `/api/weigh-in`, `/api/targets`, `/api/settings`), `/health` |
 | `src/db.js` | Schema, numbered migrations (`PRAGMA user_version`), queries, week snapshots |
 | `src/dates.js`, `src/weight.js`, `src/scoring.js` | Pure domain logic (`weight.js` is also served to the browser) |
-| `src/stats.js` | Game layer: streaks, losing streak, full days, records (computed, never stored); `/api/history` |
+| `src/stats.js` | Game layer: streaks, losing streak, star days, records (computed, never stored); `/api/history` |
 | `public/` | Plain HTML/CSS/JS frontend: `index.html` (This week), `history.html`, `settings.html` |
 | `scripts/demo-seed.js` | Fills a separate demo DB with made-up data (refuses a DB that already has weigh-ins) |
 | `Dockerfile` | `node:24-slim`, data volume `/data`, port 3000, healthcheck on `/health` |

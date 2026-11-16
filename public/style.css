@@ -167,11 +167,14 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 }
 .badge { font-size: 13px; font-weight: 700; color: var(--accent); }
 
-/* ---------- streaks / full days (This week) ---------- */
+/* ---------- streaks / star days (This week) ---------- */
 .streak { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .streak.on { color: var(--accent); font-weight: 600; }
 .dayhead { position: relative; }
-.dayhead.full::after { content: "★"; position: absolute; top: 1px; right: 3px; font-size: 10px; line-height: 1; color: var(--accent); }
+.fullrow { padding-top: 12px; border-top: 1px dashed var(--line); }
+.fd { aspect-ratio: 1 / 1; border-radius: 10px; border: 1.5px solid transparent; background: var(--surface-2); display: grid; place-items: center; font-size: 22px; color: var(--accent); min-width: 0; }
+.fd.on { background: var(--accent-soft); }
+.fd.future { background: var(--locked); }
 .wstats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
 .wstats b { color: var(--text); font-weight: 600; }
 
@@ -214,6 +217,11 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .wscore { text-align: right; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 .wscore .sweep { display: block; color: var(--accent); font-size: 12px; line-height: 1; }
 .wscore.live { color: var(--muted); }
+.wkey { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; align-items: center; }
+.wkey span { display: inline-flex; align-items: center; gap: 5px; }
+.wkey b { color: var(--text); }
+.wkey .sweep { color: var(--accent); }
+.wkey .wcell { width: 14px; height: 14px; padding: 0; border-radius: 4px; display: inline-block; aspect-ratio: auto; }
 .wscore .sofar { display: block; font-size: 10px; font-weight: 500; line-height: 1; white-space: nowrap; }
 
 /* ---------- history: year ---------- */

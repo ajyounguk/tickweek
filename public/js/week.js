@@ -33,11 +33,18 @@ function recompute() {
 }
 
 // ---------- render ----------
+/** '16/11 – 22/11/26', or '28/12/26 – 03/01/27' when the week crosses New Year. */
+function weekRange(from, to) {
+  const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const y1 = from.slice(2, 4), y2 = to.slice(2, 4);
+  return y1 === y2 ? `${dm(from)} – ${dm(to)}/${y2}` : `${dm(from)}/${y1} – ${dm(to)}/${y2}`;
+}
+
 function render() {
   const d0 = data.days[0], d6 = data.days[6];
   $('weeklabel').replaceChildren(
     data.current ? 'This week' : `Week of ${d0.ddmm}`,
-    h('small', {}, `${d0.ddmm} – ${d6.ddmm}`),
+    h('small', {}, weekRange(d0.date, d6.date)),
   );
   $('prev').disabled = !data.prevMonday;
   $('next').disabled = !data.nextMonday;
@@ -66,7 +73,7 @@ function renderScore() {
     h('div', { class: 'score' },
       h('span', { class: 'big' }, `${data.score}%`),
       h('span', { class: 'muted' }, 'week score'),
-      data.cleanSweep ? h('span', { class: 'badge', style: 'margin-left:auto' }, '★ Clean sweep') : data.current ? h('span', { class: 'pill', style: 'margin-left:auto' }, 'in progress') : null,
+      data.cleanSweep ? h('span', { class: 'badge', style: 'margin-left:auto' }, '🏆 Clean sweep') : data.current ? h('span', { class: 'pill', style: 'margin-left:auto' }, 'in progress') : null,
     ),
     h('div', { class: 'bar' }, h('i', { style: `width:${data.score}%` })),
   );
@@ -170,8 +177,7 @@ function renderGrid() {
   const card = $('gridcard');
   card.classList.toggle('hidden', !data.targets.length); // the score card already says "add some in Settings"
   const head = h('div', { class: 'grid' }, data.days.map((d) =>
-    h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (data.fullDays.includes(d.date) ? ' full' : ''), title: data.fullDays.includes(d.date) ? 'Full day: every daily target done' : null },
-      h('b', {}, d.dow), d.ddmm.slice(0, 2))));
+    h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') }, h('b', {}, d.dow), d.ddmm.slice(0, 2))));
   const blocks = data.targets.map((t) => {
     const met = t.done >= t.goal_days;
     return h('div', { class: 'target' },
@@ -186,7 +192,19 @@ function renderGrid() {
       h('div', { class: 'grid' }, data.days.map((d) => cell(t, d))),
     );
   });
-  card.replaceChildren(head, ...blocks);
+  card.replaceChildren(head, ...blocks, fullDayRow());
+}
+
+/** Bottom row: a ★ under each day where every 7/7 target was done. Only shown if the week has 7/7 targets. */
+function fullDayRow() {
+  if (!data.targets.some((t) => t.goal_days === 7)) return '';
+  const full = new Set(data.fullDays);
+  return h('div', { class: 'target fullrow' },
+    h('div', { class: 'name' }, 'Star day',
+      h('span', { style: 'margin-left:auto', class: 'pill' + (full.size ? ' met' : '') }, `★ ${full.size}`)),
+    h('div', { class: 'grid' }, data.days.map((d) =>
+      h('div', { class: 'fd' + (full.has(d.date) ? ' on' : '') + (d.future ? ' future' : ''), title: full.has(d.date) ? `${d.dow}: star day (every daily target done)` : null },
+        full.has(d.date) ? '★' : ''))));
 }
 
 const weekTotal = (t) => Object.values(data.entries[t.id] ?? {}).reduce((a, v) => a + v, 0);
@@ -226,7 +244,7 @@ async function setEntry(t, date, value) {
   }
 }
 
-// Streaks and full days are computed server-side: re-fetch shortly after a burst of taps settles.
+// Streaks and star days are computed server-side: re-fetch shortly after a burst of taps settles.
 let refreshT;
 function refreshSoon() {
   clearTimeout(refreshT);
