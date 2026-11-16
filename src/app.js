@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { todayISO, isISODate, mondayOf, addDays, weekDates, ddmm, canEditDate, canEditWeighIn } from './dates.js';
 import { daysDone, weekScore, isCleanSweep } from './scoring.js';
 import { buildStats, fullDays } from './stats.js';
+import { exportJson, exportCsv } from './export.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -204,6 +205,16 @@ export function createApp({ repo, now = () => new Date() }) {
     repo.unarchive(t.id);
     afterTargetChange();
     res.json(repo.target(t.id));
+  });
+
+  // ---------- export ----------
+  app.get('/api/export.json', (req, res) => {
+    const today = todayISO(now());
+    res.attachment(`tickweek-${today}.json`).json(exportJson(repo, now().toISOString()));
+  });
+  app.get('/api/export.csv', (req, res) => {
+    const today = todayISO(now());
+    res.attachment(`tickweek-${today}.csv`).type('text/csv; charset=utf-8').send(exportCsv(repo, today));
   });
 
   // ---------- static ----------

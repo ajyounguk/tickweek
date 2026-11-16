@@ -111,6 +111,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 - Add your targets: a simple tick, or a number with a unit. Say how many days a week each one asks for.
 - Rename, reorder or retire them at any time. Changes apply from this week on; past weeks keep their scores.
 - Set a goal weight to see your progress towards it.
+- Export your data any time: CSV (one row per day, opens in a spreadsheet) or JSON (everything).
 
 </td>
 </tr>
@@ -162,9 +163,10 @@ Dev/demo only: `TICKWEEK_NOW` pins the clock (e.g. `2026-11-19T19:30:00Z`) for s
 | Path | What |
 |---|---|
 | `src/server.js` | Entry: opens the DB, starts Express, closes cleanly on SIGTERM (WAL checkpoint before any backup) |
-| `src/app.js` | Express app + JSON API (`/api/week`, `/api/history`, `/api/entry`, `/api/weigh-in`, `/api/targets`, `/api/settings`), `/health` |
+| `src/app.js` | Express app + JSON API (`/api/week`, `/api/history`, `/api/entry`, `/api/weigh-in`, `/api/targets`, `/api/settings`, `/api/export.csv`, `/api/export.json`), `/health` |
 | `src/db.js` | Schema, numbered migrations (`PRAGMA user_version`), queries, week snapshots |
 | `src/dates.js`, `src/weight.js`, `src/scoring.js` | Pure domain logic (`weight.js` is also served to the browser) |
+| `src/export.js` | Data export: JSON (everything, weight in kg) and CSV (one row per day, one column per target) |
 | `src/stats.js` | Game layer: streaks, weight-loss streak, star days, records (computed, never stored) |
 | `public/` | Frontend: `index.html` (This week), `history.html`, `settings.html`, `help.html` (How it works) |
 | `scripts/demo-seed.js` | Fills a separate demo DB with made-up data (refuses a DB that already has weigh-ins) |
