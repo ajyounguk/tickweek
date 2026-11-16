@@ -33,6 +33,12 @@ function recompute() {
 }
 
 // ---------- render ----------
+function nextMondayDdmm() {
+  const d = new Date(data.days[0].date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 7);
+  return d.toISOString().slice(8, 10) + '/' + d.toISOString().slice(5, 7);
+}
+
 /** '16/11 – 22/11/26', or '28/12/26 – 03/01/27' when the week crosses New Year. */
 function weekRange(from, to) {
   const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -59,6 +65,7 @@ function renderNotices() {
   const box = $('notices');
   box.replaceChildren();
   const anyEditable = data.days.some((d) => d.editable);
+  if (data.current && !data.personalBest) box.append(h('div', { class: 'notice' }, 'New here? ', h('a', { href: '/help' }, 'See how it works'), '.'));
   if (data.corrections) box.append(h('div', { class: 'notice warn' }, 'Corrections mode is on: older weeks are unlocked. ', h('a', { href: '/settings' }, 'Settings')));
   if (!data.current && anyEditable && !data.corrections) box.append(h('div', { class: 'notice' }, 'Last week stays editable until this week’s weigh-in.'));
   if (!anyEditable && !data.current) box.append(h('div', { class: 'notice' }, 'This week is locked. ', h('a', { href: '/settings' }, 'Corrections mode'), ' unlocks it.'));
@@ -84,7 +91,14 @@ function renderWeigh() {
   const card = $('weigh');
   const w = data.weighIn;
   card.className = 'card weigh' + (data.current && !w && data.weighInEditable ? ' due' : '');
-  const kids = [h('h2', {}, `Weigh-in · Mon ${data.days[0].ddmm}`)];
+  const kids = [h('div', { class: 'row', style: 'margin-bottom:10px' },
+    h('h2', { style: 'margin:0' }, `Monday weigh-in · ${data.days[0].ddmm}`),
+    h('a', { href: '/help#monday', class: 'small', style: 'margin-left:auto' }, 'Why Monday?'))];
+  if (data.current && !w && data.weighInEditable) {
+    const monday = data.days[0].isToday;
+    kids.push(h('div', { class: 'small', style: 'margin:-4px 0 10px' },
+      monday ? 'Step on the scales this morning.' : 'Missed Monday? You can still enter it (counts as late).'));
+  }
 
   if (w && !editingWeigh) {
     const prev = data.prevWeighIn;
@@ -101,6 +115,7 @@ function renderWeigh() {
       w.late ? h('span', { class: 'pill warn' }, 'late') : null,
       data.weighInEditable ? h('button', { class: 'btn link', style: 'margin-left:auto', onclick: () => { editingWeigh = true; renderWeigh(); } }, 'Edit') : null,
     ));
+    if (data.current) kids.push(h('div', { class: 'small muted', style: 'margin-top:4px' }, `Next weigh-in: Mon ${nextMondayDdmm()}`));
   } else if (data.weighInEditable) {
     kids.push(weighForm(w));
   } else {
@@ -142,8 +157,6 @@ function weighForm(existing) {
   };
   lb.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
 
-  const today = data.days.find((d) => d.isToday);
-  const late = data.current && !existing && today && today.dow !== 'Mon';
   return h('div', {},
     h('div', { class: 'stlb' },
       h('label', {}, st, 'st'),
@@ -152,7 +165,6 @@ function weighForm(existing) {
       existing ? h('button', { class: 'btn link', onclick: () => { editingWeigh = false; renderWeigh(); } }, 'Cancel') : null,
       existing ? h('button', { class: 'btn link danger', onclick: remove }, 'Delete') : null,
     ),
-    late ? h('div', { class: 'small muted', style: 'margin-top:6px' }, 'Not Monday any more: this will count as a late weigh-in.') : null,
   );
 }
 
@@ -177,7 +189,8 @@ function renderGrid() {
   const card = $('gridcard');
   card.classList.toggle('hidden', !data.targets.length); // the score card already says "add some in Settings"
   const head = h('div', { class: 'grid' }, data.days.map((d) =>
-    h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') }, h('b', {}, d.dow), d.ddmm.slice(0, 2))));
+    h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (d.dow === 'Mon' ? ' weighday' : ''), title: d.dow === 'Mon' ? 'Weigh-in day' : null },
+      h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null)));
   const blocks = data.targets.map((t) => {
     const met = t.done >= t.goal_days;
     return h('div', { class: 'target' },
