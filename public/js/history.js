@@ -34,7 +34,7 @@ function renderRecords() {
       twoWeighIns ? `best ${plural(data.losing.longest, 'week')}` : 'needs 2 weigh-ins'),
     tile('Best week', r.bestScore != null ? `${r.bestScore}%` : null, r.bestScore != null ? 'closed weeks' : 'after week 1'),
     tile('Clean sweeps', String(r.cleanSweeps), 'every goal met'),
-    tile('Full days', String(r.fullDays), 'all daily targets done'),
+    tile('Star days', String(r.fullDays), 'every daily target done'),
     tile('Weeks tracked', String(r.weeksTracked), r.weeksTracked ? `since ${ddmm(data.weeks.at(-1).monday)}` : null),
   );
 }
@@ -134,7 +134,7 @@ function renderMonth() {
   const summary = h('div', { class: 'msum' },
     h('span', {}, 'Weight ', st.change != null ? h('b', { class: `delta ${deltaClass(st.change)}` }, kgDelta(st.change)) : h('b', {}, '–')),
     h('span', {}, 'Score ', h('b', {}, st.score != null ? `${st.score}%` : '–')),
-    h('span', {}, 'Full days ', h('b', {}, String(st.fullDays))));
+    h('span', {}, 'Star days ', h('b', {}, String(st.fullDays))));
   const dots = h('div', { class: 'small muted', style: 'margin-bottom:6px' },
     cur?.targets.length ? `Dots: ${cur.targets.map((t) => t.name).join(' · ')}` : '');
 
@@ -160,10 +160,13 @@ function renderMonth() {
       ...cells,
       h('div', { class: 'wscore' + (w.current ? ' live' : '') },
         w.score != null ? `${w.score}` : '–',
-        w.cleanSweep ? h('span', { class: 'sweep', title: 'Clean sweep' }, '★') : w.current ? h('span', { class: 'sofar' }, 'so far') : null),
+        w.cleanSweep ? h('span', { class: 'sweep', title: 'Clean sweep: every goal met' }, '🏆') : w.current ? h('span', { class: 'sofar' }, 'so far') : null),
     );
   });
-  const key = h('div', { class: 'small muted', style: 'margin-top:8px' }, '% week score · ring = full day · ★ every goal met');
+  const key = h('div', { class: 'small muted wkey' },
+    h('span', {}, h('b', {}, '%'), ' week score'),
+    h('span', {}, h('i', { class: 'wcell full' }), ' star day'),
+    h('span', {}, h('b', { class: 'sweep' }, '🏆'), ' every goal met'));
 
   $('month').replaceChildren(summary, dots, ...(rows.length ? [head, ...rows, key] : [h('div', { class: 'muted small' }, 'Nothing tracked this month.')]));
 }
