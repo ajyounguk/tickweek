@@ -286,39 +286,33 @@ function refreshSoon() {
   }, 700);
 }
 
-// ---------- number pad ----------
-let pad = { t: null, d: null, buf: '' };
+// ---------- number entry (plain input, so the phone's own number keyboard comes up, as for the weigh-in) ----------
+let pad = { t: null, d: null };
 
 function openPad(t, d, current) {
-  pad = { t, d, buf: current > 0 ? fmtNum(current) : '' };
+  pad = { t, d };
   $('padtitle').textContent = t.name;
   $('padsub').textContent = `${d.dow} ${d.ddmm}`;
-  drawPad();
+  $('padunit').textContent = t.unit ?? '';
+  const input = $('padinput');
+  input.value = current > 0 ? fmtNum(current) : '';
+  input.setAttribute('aria-label', t.unit || t.name);
   $('pad').showModal();
-}
-function drawPad() {
-  $('paddisplay').replaceChildren(pad.buf || '0', pad.t.unit ? h('span', { class: 'u' }, pad.t.unit) : '');
-}
-function press(k) {
-  if (k === '⌫') pad.buf = pad.buf.slice(0, -1);
-  else if (k === '.') { if (!pad.buf.includes('.')) pad.buf = (pad.buf || '0') + '.'; }
-  else if (pad.buf.length < 7 && !/\.\d\d$/.test(pad.buf)) pad.buf = pad.buf === '0' ? k : pad.buf + k;
-  drawPad();
+  input.focus();
 }
 function closePad(save) {
   $('pad').close();
   if (save !== undefined) setEntry(pad.t, pad.d.date, save);
 }
-$('padkeys').append(...['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'].map((k) =>
-  h('button', { type: 'button', onclick: () => press(k), 'aria-label': k === '⌫' ? 'delete' : k }, k)));
 $('padcancel').addEventListener('click', () => closePad());
 $('padclear').addEventListener('click', () => closePad(0));
-$('padsave').addEventListener('click', () => closePad(Number(pad.buf) || 0));
-$('pad').addEventListener('keydown', (e) => {
-  if (/^[0-9.]$/.test(e.key)) press(e.key);
-  else if (e.key === 'Backspace') press('⌫');
-  else if (e.key === 'Enter') { e.preventDefault(); $('padsave').click(); }
+$('padsave').addEventListener('click', () => {
+  const raw = $('padinput').value.trim().replace(',', '.');
+  const v = raw === '' ? 0 : Number(raw);
+  if (!Number.isFinite(v) || v < 0 || v > 100000) return toast('Enter a number');
+  closePad(Math.round(v * 100) / 100);
 });
+$('padinput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('padsave').click(); } });
 $('pad').addEventListener('click', (e) => { if (e.target === $('pad')) closePad(); }); // tap backdrop
 
 // ---------- nav ----------
