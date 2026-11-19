@@ -202,26 +202,36 @@ function renderGrid(change) {
   const head = h('div', { class: 'grid' }, data.days.map((d) =>
     h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (d.dow === 'Mon' ? ' weighday' : ''), title: d.dow === 'Mon' ? 'Weigh-in day' : null },
       h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null)));
-  const blocks = grouped(data.targets).map((t) => {
-    const met = showsStars(t);
-    // Cascade order over the filled boxes: left-to-right into stars, right-to-left back to ticks.
-    let order = null;
-    if (change?.ids.has(t.id)) {
-      const filled = data.days.filter((d) => (data.entries[t.id]?.[d.date] ?? 0) > 0).map((d) => d.date);
-      if (change.dir === 'out') filled.reverse();
-      order = new Map(filled.map((date, i) => [date, i]));
-    }
-    return h('div', { class: 'target' },
-      h('div', { class: 'name' },
-        t.name,
-        t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
-        t.kind === 'combined' ? h('span', { class: 'unit' }, sourcesOf(t).map((s) => s.name).join(' + ')) : null,
-        t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`) : null,
-      ),
-      h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
-    );
-  });
+  // A combined target heads a .group block; its sources follow inside it.
+  const blocks = [];
+  let group = null;
+  for (const t of grouped(data.targets)) {
+    const row = targetRow(t, change);
+    if (t.kind === 'combined') blocks.push(group = h('div', { class: 'group' }, row));
+    else if (parentOf(t) && group) group.append(row);
+    else { group = null; blocks.push(row); }
+  }
   card.replaceChildren(head, ...blocks, fullDayRow());
+}
+
+/** One target's row: name, unit or weekly total, N/goal pill, and its seven boxes. */
+function targetRow(t, change) {
+  const met = showsStars(t);
+  // Cascade order over the filled boxes: left-to-right into stars, right-to-left back to ticks.
+  let order = null;
+  if (change?.ids.has(t.id)) {
+    const filled = data.days.filter((d) => (data.entries[t.id]?.[d.date] ?? 0) > 0).map((d) => d.date);
+    if (change.dir === 'out') filled.reverse();
+    order = new Map(filled.map((date, i) => [date, i]));
+  }
+  return h('div', { class: 'target' + (parentOf(t) ? ' src' : '') },
+    h('div', { class: 'name' },
+      t.name,
+      t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
+      t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`) : null,
+    ),
+    h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
+  );
 }
 
 /** Bottom row: a ★ under each day where every 7/7 target was done. Only shown if the week has 7/7 targets. */

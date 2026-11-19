@@ -75,9 +75,13 @@ The current week's score and streaks are "in progress" until the week closes.
    ticks spinning into stars with a brief glow; back to ticks right-to-left without the glow; a crossfade under
    reduced motion). Page loads and past weeks show the stars statically. Same green box, no new colours. History
    month dots are unchanged.
-   **Combined targets**: the row sits directly below its sources, at the combined target's place in the order. Its
-   boxes are read-only (dotted when empty) and show a tick on any day a source was done; when it's met, its sources'
-   filled boxes show ★ too. Sources show their weekly total and no N/goal pill.
+   **Combined targets**: the combined target heads a group, at its own place in the order, with its sources indented
+   under it, all in a lightly tinted panel (on This week and in Settings; prototyped as panel vs left rail, panel
+   chosen 19 Nov 2026). The panel reaches into the card's padding, so the boxes keep their width and stay lined up
+   with the day headers. Its boxes are read-only and styled like the Star day row (grey when empty, soft green with a green tick when done),
+   so they don't look like entry boxes;
+   when it's met, its sources' filled boxes show ★ too. Sources show their weekly total and no N/goal pill. In
+   Settings the group moves as one block (only the combined target has ↑↓).
    Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,

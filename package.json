@@ -1,6 +1,6 @@
 {
   "name": "tickweek",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Tick the boxes, lose the weight. A small self-hosted health tracker.",
   "private": true,
   "type": "module",

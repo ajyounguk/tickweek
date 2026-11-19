@@ -15,7 +15,7 @@ const sourcesOf = (t) => targets.filter((s) => s.part_of === t.id && !s.archived
 const kindLabel = (t) => (t.kind === 'tick' ? 'Tick' : t.kind === 'number' ? `Number${t.unit ? ` (${t.unit})` : ''}` : 'Combined');
 function describe(t) {
   const goal = t.goal_days != null ? `${t.goal_days}/7` : t.part_of && byId(t.part_of) ? `in ${byId(t.part_of).name}` : 'no goal';
-  const from = t.kind === 'combined' ? ` · ${sourcesOf(t).map((s) => s.name).join(' + ') || 'nothing yet'}` : '';
+  const from = t.kind === 'combined' && !sourcesOf(t).length ? ' · counts nothing yet' : '';
   return `${kindLabel(t)}${from} · ${goal}`;
 }
 /** Checkboxes for a combined target's sources: every active tick/number target. */
@@ -38,15 +38,18 @@ function renderTargets() {
   const active = grouped(targets.filter((t) => !t.archived_at));
   const archived = targets.filter((t) => t.archived_at);
   // Reorder moves blocks: a combined target moves together with its sources.
-  // grouped() puts sources straight before their combined target, so collect them until it comes.
+  // grouped() puts sources straight after their combined target, so they join its block.
   const blocks = [];
-  let sources = [];
   for (const t of active) {
-    if (t.part_of && active.some((x) => x.id === t.part_of)) { sources.push(t); continue; }
-    blocks.push(t.kind === 'combined' ? [...sources, t] : [t]);
-    sources = [];
+    if (t.part_of && active.some((x) => x.id === t.part_of)) blocks.at(-1).push(t);
+    else blocks.push([t]);
   }
-  const rows = blocks.flatMap((block, bi) => block.map((t) => (t.id === editingId ? editRow(t) : viewRow(t, bi, blocks))));
+  const rows = blocks.flatMap((block, bi) => block.map((t, k) => {
+    const li = t.id === editingId ? editRow(t) : viewRow(t, bi, blocks);
+    // A combined target and its sources are drawn as one group.
+    if (block.length > 1) li.classList.add('grp', ...(k === 0 ? ['grp-first'] : []), ...(k === block.length - 1 ? ['grp-last'] : []));
+    return li;
+  }));
   $('targets').replaceChildren(...(rows.length ? rows : [h('li', { class: 'muted' }, 'No active targets.')]));
 
   $('archivedcard').classList.toggle('hidden', !archived.length);

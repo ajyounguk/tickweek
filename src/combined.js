@@ -20,14 +20,14 @@ export function withCombined(targets, entries) {
   return out;
 }
 
-/** Display order: each combined target directly below its sources, at the combined target's own place. */
+/** Display order: each combined target at its own place, followed by its sources (like a heading and its items). */
 export function grouped(targets) {
   const has = new Set(targets.map((t) => t.id));
   const out = [];
   for (const t of targets) {
     if (t.part_of && has.has(t.part_of)) continue; // drawn with its combined target
-    if (t.kind === 'combined') out.push(...targets.filter((s) => s.part_of === t.id));
     out.push(t);
+    if (t.kind === 'combined') out.push(...targets.filter((s) => s.part_of === t.id));
   }
   return out;
 }
