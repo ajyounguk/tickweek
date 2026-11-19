@@ -1,4 +1,4 @@
-// Pure scoring helpers. Streaks/records arrive in M2.
+// Pure scoring helpers. Targets with no goal (goal_days null: logged only, e.g. a combined target's sources) don't count.
 
 /** Days done per target: number of dates in the week with value > 0. */
 export function daysDone(entriesForTarget = {}) {
@@ -13,6 +13,7 @@ export function weekScore(targets, entries) {
   let got = 0;
   let max = 0;
   for (const t of targets) {
+    if (t.goal_days == null) continue;
     got += Math.min(daysDone(entries[t.id]), t.goal_days);
     max += t.goal_days;
   }
@@ -20,7 +21,8 @@ export function weekScore(targets, entries) {
 }
 
 export function isCleanSweep(targets, entries) {
-  return targets.length > 0 && targets.every((t) => daysDone(entries[t.id]) >= t.goal_days);
+  const scored = targets.filter((t) => t.goal_days != null);
+  return scored.length > 0 && scored.every((t) => daysDone(entries[t.id]) >= t.goal_days);
 }
 
 /** Goal progress from the first weigh-in towards the goal: { toGoKg, pct } or null. */

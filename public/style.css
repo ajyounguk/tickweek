@@ -104,6 +104,13 @@ button, input, select { font: inherit; color: inherit; }
 .cell.done:disabled { background-image: none; opacity: .75; }
 .cell.future { border-style: dashed; opacity: .5; }
 .cell svg { width: 22px; height: 22px; }
+/* A combined target's boxes fill themselves: dotted, not tappable. */
+.cell.auto { cursor: default; border-style: dotted; }
+.cell.auto:active { transform: none; }
+.cell.auto.done { border-style: solid; }
+.cell.auto.locked:not(.done) { background-image: var(--locked); }
+.cell.auto.locked.done { opacity: .75; }
+.target .name .unit { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Stars for met rows: every filled box shows ★ once the row reaches its goal. */
 .cell .g { display: grid; place-items: center; line-height: 1; }
@@ -179,6 +186,10 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .form .two > * { flex: 1; min-width: 120px; }
 .form label > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 3px; }
 .form input, .form select { width: 100%; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; }
+.checks .chk { display: inline-flex; align-items: center; gap: 6px; }
+.form .checks input { width: 18px; height: 18px; accent-color: var(--accent); }
+.tlist li.src { padding-left: 14px; }
 .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .switch input { width: 20px; height: 20px; accent-color: var(--accent); }
 

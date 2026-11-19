@@ -3,31 +3,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { weekDates } from './dates.js';
 
-// Numbered migrations, tracked with PRAGMA user_version. Append only; never edit a shipped one.
-const MIGRATIONS = [
-  // 1: initial schema + starting targets
-  `
+// One schema, created in one go on an empty database and tracked with PRAGMA user_version.
+// A database from another schema version is refused, never touched: move it aside to start fresh.
+export const SCHEMA_VERSION = 2;
+const SCHEMA = `
   CREATE TABLE target (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
-    kind        TEXT NOT NULL CHECK (kind IN ('tick','number')),
+    kind        TEXT NOT NULL CHECK (kind IN ('tick','number','combined')),
     unit        TEXT,
-    goal_days   INTEGER NOT NULL DEFAULT 7 CHECK (goal_days BETWEEN 1 AND 7),
+    goal_days   INTEGER CHECK (goal_days IS NULL OR goal_days BETWEEN 1 AND 7), -- NULL: no goal (logged, not scored)
     sort_order  INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    archived_at TEXT
+    archived_at TEXT,
+    part_of     INTEGER REFERENCES target(id)                                   -- the combined target it counts towards
   );
   CREATE TABLE week (
     monday_date TEXT PRIMARY KEY,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- Each week's own copy of the targets, goals and groupings, so past weeks never shift.
   CREATE TABLE week_target (
     monday_date TEXT NOT NULL REFERENCES week(monday_date),
     target_id   INTEGER NOT NULL REFERENCES target(id),
-    goal_days   INTEGER NOT NULL,
+    goal_days   INTEGER,
     sort_order  INTEGER NOT NULL,
+    part_of     INTEGER,
     PRIMARY KEY (monday_date, target_id)
   );
+  -- Only tick and number targets have entries; a combined target's days are derived (src/combined.js).
   CREATE TABLE entry (
     date       TEXT NOT NULL,
     target_id  INTEGER NOT NULL REFERENCES target(id),
@@ -45,31 +49,32 @@ const MIGRATIONS = [
     key   TEXT PRIMARY KEY,
     value TEXT
   );
-  INSERT INTO target (name, kind, unit, goal_days, sort_order) VALUES
-    ('Intermittent fast', 'tick',   NULL,    7, 1),
-    ('No snacks',         'tick',   NULL,    7, 2),
-    ('Running',           'number', 'miles', 3, 3),
-    ('Weight training',   'number', 'min',   2, 4);
-  `,
-];
+  -- Starting set: Exercise is done by either a run or a weights session.
+  INSERT INTO target (id, name, kind, unit, goal_days, sort_order, part_of) VALUES
+    (1, 'Intermittent fast', 'tick',     NULL,    7,    1, NULL),
+    (2, 'No snacks',         'tick',     NULL,    7,    2, NULL),
+    (5, 'Exercise',          'combined', NULL,    4,    5, NULL),
+    (3, 'Running',           'number',   'miles', NULL, 3, 5),
+    (4, 'Weight training',   'number',   'min',   NULL, 4, 5);
+`;
 
 export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  migrate(db);
-  return db;
-}
-
-function migrate(db) {
-  const current = db.pragma('user_version', { simple: true });
-  for (let v = current; v < MIGRATIONS.length; v++) {
+  const version = db.pragma('user_version', { simple: true });
+  if (version === 0) {
     db.transaction(() => {
-      db.exec(MIGRATIONS[v]);
-      db.pragma(`user_version = ${v + 1}`);
+      db.exec(SCHEMA);
+      db.pragma(`user_version = ${SCHEMA_VERSION}`);
     })();
+  } else if (version !== SCHEMA_VERSION) {
+    db.close();
+    throw new Error(`${file} is from another Tickweek version (schema ${version}, this one needs ${SCHEMA_VERSION}). `
+      + 'Move it aside to start fresh.');
   }
+  return db;
 }
 
 // ---------- data access ----------
@@ -81,7 +86,7 @@ export function makeRepo(db) {
     firstWeek: db.prepare('SELECT MIN(monday_date) AS m FROM week'),
     allWeeks: db.prepare('SELECT monday_date FROM week ORDER BY monday_date').pluck(),
     allSnapshots: db.prepare(`
-      SELECT wt.monday_date, t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order
+      SELECT wt.monday_date, t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order, wt.part_of
       FROM week_target wt JOIN target t ON t.id = wt.target_id`),
     allEntries: db.prepare('SELECT date, target_id, value FROM entry'),
     allWeighIns: db.prepare('SELECT * FROM weigh_in ORDER BY monday_date'),
@@ -89,9 +94,9 @@ export function makeRepo(db) {
     allTargets: db.prepare('SELECT * FROM target ORDER BY archived_at IS NOT NULL, sort_order, id'),
     target: db.prepare('SELECT * FROM target WHERE id = ?'),
     clearSnapshot: db.prepare('DELETE FROM week_target WHERE monday_date = ?'),
-    insertSnapshot: db.prepare('INSERT INTO week_target (monday_date, target_id, goal_days, sort_order) VALUES (?, ?, ?, ?)'),
+    insertSnapshot: db.prepare('INSERT INTO week_target (monday_date, target_id, goal_days, sort_order, part_of) VALUES (?, ?, ?, ?, ?)'),
     weekTargets: db.prepare(`
-      SELECT t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order
+      SELECT t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order, wt.part_of
       FROM week_target wt JOIN target t ON t.id = wt.target_id
       WHERE wt.monday_date = ? ORDER BY wt.sort_order, t.id`),
     inSnapshot: db.prepare('SELECT 1 FROM week_target WHERE monday_date = ? AND target_id = ?'),
@@ -116,6 +121,9 @@ export function makeRepo(db) {
     setSort: db.prepare('UPDATE target SET sort_order = ? WHERE id = ?'),
     archive: db.prepare("UPDATE target SET archived_at = datetime('now') WHERE id = ?"),
     unarchive: db.prepare('UPDATE target SET archived_at = NULL, sort_order = ? WHERE id = ?'),
+    clearSources: db.prepare('UPDATE target SET part_of = NULL WHERE part_of = ?'),
+    addSource: db.prepare('UPDATE target SET part_of = ?, goal_days = NULL WHERE id = ?'),
+    leave: db.prepare('UPDATE target SET part_of = NULL WHERE id = ?'),
   };
 
   const repo = {
@@ -197,12 +205,26 @@ export function makeRepo(db) {
     reorder(ids) {
       db.transaction(() => ids.forEach((id, i) => q.setSort.run(i + 1, id)))();
     },
-    archive: (id) => q.archive.run(id),
+    /** A combined target's sources: replaces the old set. Sources lose their own goal while they count towards it. */
+    setSources(combinedId, ids) {
+      db.transaction(() => {
+        q.clearSources.run(combinedId);
+        for (const id of ids) q.addSource.run(combinedId, id);
+      })();
+    },
+    /** Retiring frees the target's sources (they keep no goal until one is set) and takes it out of its combined target. */
+    archive(id) {
+      db.transaction(() => {
+        q.archive.run(id);
+        q.clearSources.run(id);
+        q.leave.run(id);
+      })();
+    },
     unarchive: (id) => q.unarchive.run(q.maxSort.get().m + 1, id),
   };
 
   function writeSnapshot(monday) {
-    for (const t of q.activeTargets.all()) q.insertSnapshot.run(monday, t.id, t.goal_days, t.sort_order);
+    for (const t of q.activeTargets.all()) q.insertSnapshot.run(monday, t.id, t.goal_days, t.sort_order, t.part_of);
   }
 
   return repo;

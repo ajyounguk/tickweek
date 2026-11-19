@@ -38,11 +38,13 @@
           <select name="kind">
             <option value="tick">Tick</option>
             <option value="number">Number</option>
+            <option value="combined">Combined</option>
           </select>
         </label>
         <label class="unitfield hidden"><span>Unit</span><input type="text" name="unit" maxlength="12" placeholder="miles, min…"></label>
         <label><span>Goal</span><select name="goal_days"></select></label>
       </div>
+      <div class="sourcesfield hidden"><span class="small muted">Counts</span><div id="addsources"></div></div>
       <div><button class="btn primary" type="submit">Add target</button></div>
     </form>
   </section>

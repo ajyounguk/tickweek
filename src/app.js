@@ -6,6 +6,7 @@ import { todayISO, isISODate, mondayOf, addDays, weekDates, ddmm, canEditDate, c
 import { daysDone, weekScore, isCleanSweep } from './scoring.js';
 import { buildStats, fullDays } from './stats.js';
 import { exportJson, exportCsv } from './export.js';
+import { withCombined } from './combined.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { version } = JSON.parse(readFileSync(path.join(here, '..', 'package.json'), 'utf8'));
@@ -44,7 +45,7 @@ export function createApp({ repo, now = () => new Date() }) {
     if (!repo.weekExists(monday) && weekDates(monday).some((d) => canEditDate(d, today, edit))) repo.ensureWeek(monday);
 
     const targets = repo.weekTargets(monday);
-    const entries = repo.weekEntries(monday);
+    const entries = withCombined(targets, repo.weekEntries(monday));
     const weighIn = repo.weighIn(monday);
     const prev = repo.prevWeighIn(monday);
     const first = repo.firstWeighIn();
@@ -99,6 +100,7 @@ export function createApp({ repo, now = () => new Date() }) {
     repo.ensureWeek(monday);
     const target = repo.target(Number(targetId));
     if (!target || !repo.inSnapshot(monday, target.id)) fail('target is not part of that week');
+    if (target.kind === 'combined') fail('a combined target fills itself from its targets');
 
     value = value == null || value === '' ? 0 : Number(value);
     if (!Number.isFinite(value) || value < 0 || value > 100000) fail('value out of range');
@@ -162,12 +164,29 @@ export function createApp({ repo, now = () => new Date() }) {
     const name = String(b.name ?? existing?.name ?? '').trim();
     if (!name || name.length > 40) fail('name must be 1–40 characters');
     const kind = existing ? existing.kind : b.kind;
-    if (kind !== 'tick' && kind !== 'number') fail('kind must be tick or number');
+    if (!['tick', 'number', 'combined'].includes(kind)) fail('kind must be tick, number or combined');
     let unit = kind === 'number' ? String(b.unit ?? existing?.unit ?? '').trim() : null;
     if (unit && unit.length > 12) fail('unit must be up to 12 characters');
-    const goalDays = Number(b.goal_days ?? existing?.goal_days ?? 7);
-    if (!Number.isInteger(goalDays) || goalDays < 1 || goalDays > 7) fail('goal must be 1–7 days');
+    // goal_days: 1–7, or null/'' for no goal (logged, not scored). Absent = keep (or 7 for a new target).
+    let goalDays = 'goal_days' in b ? b.goal_days : existing ? existing.goal_days : 7;
+    if (goalDays === '') goalDays = null;
+    if (goalDays != null) {
+      goalDays = Number(goalDays);
+      if (!Number.isInteger(goalDays) || goalDays < 1 || goalDays > 7) fail('goal must be 1–7 days');
+    }
+    if (kind === 'combined' && goalDays == null) fail('a combined target needs a goal');
+    if (existing?.part_of && goalDays != null) fail('it counts towards a combined target, so it has no goal of its own');
     return { name, kind, unit: unit || null, goal_days: goalDays };
+  };
+  /** A combined target's sources: active tick/number targets, at least one. One taken from another combined target moves. */
+  const cleanSources = (ids, selfId) => {
+    if (!Array.isArray(ids) || !ids.length) fail('pick at least one target for it to count');
+    const clean = [...new Set(ids.map(Number))];
+    for (const id of clean) {
+      const t = repo.target(id);
+      if (!t || t.archived_at || t.kind === 'combined' || t.id === selfId) fail('it can only count active tick or number targets');
+    }
+    return clean;
   };
   const afterTargetChange = () => repo.resyncWeek(thisMonday());
   const mustTarget = (id) => repo.target(Number(id)) ?? fail('no such target', 404);
@@ -175,7 +194,14 @@ export function createApp({ repo, now = () => new Date() }) {
   app.get('/api/targets', (req, res) => res.json(repo.allTargets()));
 
   app.post('/api/targets', (req, res) => {
-    const id = repo.addTarget(cleanTarget(req.body ?? {}));
+    const b = req.body ?? {};
+    const t = cleanTarget(b);
+    const sources = t.kind === 'combined' ? cleanSources(b.sources) : null;
+    const id = repo.db.transaction(() => {
+      const newId = repo.addTarget(t);
+      if (sources) repo.setSources(newId, sources);
+      return newId;
+    })();
     afterTargetChange();
     res.status(201).json(repo.target(id));
   });
@@ -190,7 +216,13 @@ export function createApp({ repo, now = () => new Date() }) {
 
   app.patch('/api/targets/:id', (req, res) => {
     const t = mustTarget(req.params.id);
-    repo.updateTarget(t.id, cleanTarget(req.body ?? {}, t));
+    const b = req.body ?? {};
+    const clean = cleanTarget(b, t);
+    const sources = t.kind === 'combined' && 'sources' in b ? cleanSources(b.sources, t.id) : null;
+    repo.db.transaction(() => {
+      repo.updateTarget(t.id, clean);
+      if (sources) repo.setSources(t.id, sources);
+    })();
     afterTargetChange();
     res.json(repo.target(t.id));
   });
@@ -221,6 +253,7 @@ export function createApp({ repo, now = () => new Date() }) {
 
   // ---------- static ----------
   app.get('/js/weight.js', (req, res) => res.sendFile(path.join(here, 'weight.js')));
+  app.get('/js/combined.js', (req, res) => res.sendFile(path.join(here, 'combined.js')));
   app.use(express.static(path.join(here, '..', 'public'), { extensions: ['html'] }));
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }));

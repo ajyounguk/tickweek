@@ -27,14 +27,18 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 
 ## Targets
 
-- **Configurable**: add, rename, reorder, retire. Starting set: intermittent fast, no snacks, exercise (likely split
-  into e.g. running and weight training).
-- **Two kinds**:
+- **Configurable**: add, rename, reorder, retire. Starting set: intermittent fast 7/7, no snacks 7/7, and Exercise 4/7
+  combined from running (miles) and weight training (minutes).
+- **Three kinds**:
   - **Tick**: done / not done.
   - **Number**: a value with a unit (e.g. weight training in minutes, running in miles). **Any value > 0 counts as
     done.** Values are kept, so weekly/all-time totals come for free.
+  - **Combined** (19 Nov 2026): ticks itself from other targets, e.g. Exercise = Running + Weight training, 4/7. A day
+    counts when any of its sources has an entry; a run and weights on the same day = 1 day (counting sessions was
+    considered and dropped). Not tappable, no unit, no nesting. Its sources have **no goal** while they count towards
+    it: still logged, not scored. Retiring it leaves them with no goal until one is set.
 - **Days-per-week goal** per target (N/7, default 7), e.g. fast 7/7, no snacks 7/7, running 3/7, weights 2/7. Which
-  days doesn't matter.
+  days doesn't matter. A target can also have **no goal**: logged only, left out of scores, streaks and History dots.
 - **Changes apply from the current week on.** Each week keeps a snapshot of the targets and goals it had, so past scores
   never shift. Retiring a target archives it: its history and records stay.
 
@@ -50,7 +54,7 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 
 | Term | Rule |
 |---|---|
-| **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets. Going over a goal doesn't add points |
+| **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets with a goal. Going over a goal doesn't add points |
 | **Perfect week** 🏆 | Every target reached its N/7 goal that week (was "clean sweep") |
 | **Star day** ★ | Every 7/7 target ticked on that day (was "full day") |
 | **Target streak** | 7/7 targets: consecutive days done. N/7 targets: consecutive weeks where the goal was met |
@@ -71,6 +75,9 @@ The current week's score and streaks are "in progress" until the week closes.
    ticks spinning into stars with a brief glow; back to ticks right-to-left without the glow; a crossfade under
    reduced motion). Page loads and past weeks show the stars statically. Same green box, no new colours. History
    month dots are unchanged.
+   **Combined targets**: the row sits directly below its sources, at the combined target's place in the order. Its
+   boxes are read-only (dotted when empty) and show a tick on any day a source was done; when it's met, its sources'
+   filled boxes show ★ too. Sources show their weekly total and no N/goal pill.
    Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,
@@ -101,11 +108,14 @@ The current week's score and streaks are "in progress" until the week closes.
 
 | Table | Columns (main) |
 |---|---|
-| `target` | id, name, kind (`tick`/`number`), unit, sort_order, archived_at |
+| `target` | id, name, kind (`tick`/`number`/`combined`), unit, goal_days (NULL = no goal), sort_order, archived_at, part_of (its combined target) |
 | `week` | monday_date (PK), closed_at |
-| `week_target` | monday_date, target_id, goal_days, sort_order (the per-week snapshot) |
-| `entry` | date, target_id, value (1 for a tick; the number for number targets), updated_at |
+| `week_target` | monday_date, target_id, goal_days, sort_order, part_of (the per-week snapshot) |
+| `entry` | date, target_id, value (1 for a tick; the number for number targets; none for combined: derived), updated_at |
 | `weigh_in` | monday_date (PK), kg, entered_on, late (bool) |
 | `setting` | key, value (goal_kg, corrections_mode, …) |
+
+One schema, created in one go on an empty database (`PRAGMA user_version` = 2). A database from another version is
+refused with a message, never changed: start fresh (decided 19 Nov 2026: no data to keep, so no migrations).
 
 Scores, streaks and records are computed from these, not stored.

@@ -2,6 +2,7 @@
 // Pure: takes plain rows + today, returns plain objects. Data is small (one row per week), so recompute per request.
 import { addDays, mondayOf, weekDates } from './dates.js';
 import { daysDone, weekScore, isCleanSweep } from './scoring.js';
+import { withCombined } from './combined.js';
 
 /**
  * Day streak for a 7/7 target. `done` is a Set of ISO dates with value > 0.
@@ -63,7 +64,7 @@ export function fullDays(targets, entries, dates) {
 
 /**
  * Build everything the UI needs from the raw rows.
- * rows: { targets, weeks: [monday], snapshots: [{ monday_date, id, name, kind, unit, goal_days, sort_order }],
+ * rows: { targets, weeks: [monday], snapshots: [{ monday_date, id, name, kind, unit, goal_days, sort_order, part_of }],
  *         entries: [{ date, target_id, value }], weighIns: [{ monday_date, kg, entered_on, late }] }
  */
 export function buildStats(rows, today) {
@@ -92,12 +93,14 @@ export function buildStats(rows, today) {
   // ---- weeks ----
   const weeks = weeksAsc.map((monday) => {
     const targets = snapByWeek.get(monday) ?? [];
-    const entries = byWeek.get(monday) ?? {};
+    const entries = withCombined(targets, byWeek.get(monday) ?? {});
     const dates = weekDates(monday);
     return {
       monday,
       current: monday === currentMonday,
-      targets: targets.map((t) => ({ id: t.id, name: t.name, kind: t.kind, unit: t.unit, goal_days: t.goal_days, done: daysDone(entries[t.id]) })),
+      targets: targets.map((t) => ({
+        id: t.id, name: t.name, kind: t.kind, unit: t.unit, goal_days: t.goal_days, part_of: t.part_of ?? null, done: daysDone(entries[t.id]),
+      })),
       entries,
       score: weekScore(targets, entries),
       cleanSweep: isCleanSweep(targets, entries),
@@ -106,23 +109,36 @@ export function buildStats(rows, today) {
     };
   });
   const weekMap = new Map(weeks.map((w) => [w.monday, w]));
+  // A combined target's done days only exist as derived entries, week by week.
+  const combinedDone = new Map();
+  for (const w of weeks) {
+    for (const t of w.targets) {
+      if (t.kind !== 'combined') continue;
+      if (!combinedDone.has(t.id)) combinedDone.set(t.id, new Set());
+      for (const d of Object.keys(w.entries[t.id] ?? {})) combinedDone.get(t.id).add(d);
+    }
+  }
 
   // ---- per target ----
   const targets = rows.targets.map((t) => {
     const values = byTarget.get(t.id) ?? new Map();
-    const doneDates = new Set([...values].filter(([, v]) => v > 0).map(([d]) => d));
+    const doneDates = t.kind === 'combined'
+      ? combinedDone.get(t.id) ?? new Set()
+      : new Set([...values].filter(([, v]) => v > 0).map(([d]) => d));
     let total = 0;
     for (const v of values.values()) total += v;
     const daily = t.goal_days === 7;
-    const streak = daily
+    const streak = t.goal_days == null
+      ? { current: 0, longest: 0 } // no goal, no streak
+      : daily
       ? dayStreak(doneDates, today)
       : weekStreak((m) => {
           const wk = weekMap.get(m);
           const st = wk?.targets.find((x) => x.id === t.id);
-          return !!st && st.done >= st.goal_days;
+          return !!st && st.goal_days != null && st.done >= st.goal_days;
         }, firstMonday, currentMonday);
     return {
-      id: t.id, name: t.name, kind: t.kind, unit: t.unit, goal_days: t.goal_days, archived: !!t.archived_at,
+      id: t.id, name: t.name, kind: t.kind, unit: t.unit, goal_days: t.goal_days, part_of: t.part_of ?? null, archived: !!t.archived_at,
       streakUnit: daily ? 'days' : 'weeks',
       streak,
       daysDone: doneDates.size,
