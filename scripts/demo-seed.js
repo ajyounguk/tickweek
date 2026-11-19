@@ -32,9 +32,17 @@ db.transaction(() => {
     for (const [i, date] of weekDates(monday).entries()) {
       if (date > today) break;
       for (const t of targets) {
-        const p = t.goal_days === 7 ? skill : (t.goal_days / 7) * (0.8 + skill * 0.5);
+        if (t.kind === 'combined') continue; // fills itself from its sources
+        // A source shares its combined target's goal with the other sources (Exercise: a run or a weights session).
+        const parent = targets.find((c) => c.id === t.part_of);
+        const goal = parent ? parent.goal_days : t.goal_days;
+        if (goal == null) continue;
+        const share = parent ? targets.filter((s) => s.part_of === parent.id) : [t];
+        const k = share.indexOf(t);
+        const p = goal === 7 ? skill : (goal / 7 / share.length) * (0.8 + skill * 0.5);
         const roll = rand();
-        if (perfect ? spread.slice(0, t.goal_days).includes(i) : roll < p) repo.setEntry(date, t.id, t.kind === 'tick' ? 1 : t.unit === 'miles' ? Math.round((2 + rand() * 3) * 10) / 10 : 30 + Math.round(rand() * 4) * 10);
+        const perfectDays = spread.slice(0, goal).filter((_, j) => j % share.length === k);
+        if (perfect ? perfectDays.includes(i) : roll < p) repo.setEntry(date, t.id, t.kind === 'tick' ? 1 : t.unit === 'miles' ? Math.round((2 + rand() * 3) * 10) / 10 : 30 + Math.round(rand() * 4) * 10);
       }
     }
     if (w === 7) continue; // a missed weigh-in, to show the gap

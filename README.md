@@ -144,6 +144,9 @@ docker run -d --name tickweek \
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and
 upgrade on purpose. Images are published per release; there's no `:latest`.
 
+Versions before 0.6 used an older database layout. 0.6 won't open it (it says so and stops): start with an empty
+`/data` folder, or move the old `tickweek.db` aside.
+
 To back up, copy the `/data` folder while the container is stopped (it shuts down cleanly on `docker stop`).
 
 ## Develop
@@ -165,7 +168,7 @@ Dev/demo only: `TICKWEEK_NOW` pins the clock (e.g. `2026-11-19T19:30:00Z`) for s
 |---|---|
 | `src/server.js` | Entry: opens the DB, starts Express, closes cleanly on SIGTERM (WAL checkpoint before any backup) |
 | `src/app.js` | Express app + JSON API (`/api/week`, `/api/history`, `/api/entry`, `/api/weigh-in`, `/api/targets`, `/api/settings`, `/api/export.csv`, `/api/export.json`), `/health` |
-| `src/db.js` | Schema, numbered migrations (`PRAGMA user_version`), queries, week snapshots |
+| `src/db.js` | Schema (versioned with `PRAGMA user_version`; another version is refused, not migrated), starting targets, queries, week snapshots |
 | `src/dates.js`, `src/weight.js`, `src/scoring.js`, `src/combined.js` | Pure domain logic (`weight.js` and `combined.js` are also served to the browser) |
 | `src/export.js` | Data export: JSON (everything, weight in kg) and CSV (one row per day, one column per target) |
 | `src/stats.js` | Game layer: streaks, weight-loss streak, star days, records (computed, never stored) |

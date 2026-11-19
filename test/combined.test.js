@@ -1,7 +1,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import Database from 'better-sqlite3';
-import { openDb, makeRepo, migrate, MIGRATIONS } from '../src/db.js';
+import { openDb, makeRepo, SCHEMA_VERSION } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { withCombined, grouped } from '../src/combined.js';
 import { weekScore, isCleanSweep } from '../src/scoring.js';
@@ -48,19 +51,28 @@ test('scoring leaves out targets with no goal', () => {
   assert.equal(isCleanSweep([{ id: 2, goal_days: null }], entries), false, 'nothing scored → no perfect week');
 });
 
-test('migration 2 keeps a v1 database intact', () => {
-  const db = new Database(':memory:');
-  migrate(db, 1);
-  db.exec(`INSERT INTO week (monday_date) VALUES ('2026-11-09');
-    INSERT INTO week_target (monday_date, target_id, goal_days, sort_order) SELECT '2026-11-09', id, goal_days, sort_order FROM target;
-    INSERT INTO entry (date, target_id, value) VALUES ('2026-11-10', 3, 4.2);`);
-  migrate(db);
-  assert.equal(db.pragma('user_version', { simple: true }), MIGRATIONS.length);
-  assert.deepEqual(db.prepare('SELECT name, goal_days, part_of FROM target ORDER BY id').all().map((t) => [t.name, t.goal_days, t.part_of]),
-    [['Intermittent fast', 7, null], ['No snacks', 7, null], ['Running', 3, null], ['Weight training', 2, null]]);
-  assert.equal(db.prepare('SELECT COUNT(*) c FROM week_target').get().c, 4);
-  assert.equal(db.prepare('SELECT value FROM entry').get().value, 4.2);
-  assert.equal(db.pragma('foreign_key_check').length, 0);
+test('a fresh database starts with Exercise; one from another version is refused and left alone', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tickweek-'));
+  try {
+    const fresh = openDb(path.join(dir, 'new.db'));
+    assert.equal(fresh.pragma('user_version', { simple: true }), SCHEMA_VERSION);
+    assert.deepEqual(fresh.prepare('SELECT name, kind, goal_days, part_of FROM target ORDER BY sort_order').all().map((t) => Object.values(t)),
+      [['Intermittent fast', 'tick', 7, null], ['No snacks', 'tick', 7, null], ['Running', 'number', null, 5], ['Weight training', 'number', null, 5], ['Exercise', 'combined', 4, null]]);
+    fresh.close();
+
+    const oldFile = path.join(dir, 'old.db');
+    const old = new Database(oldFile);
+    old.exec("CREATE TABLE target (id INTEGER PRIMARY KEY, name TEXT); INSERT INTO target VALUES (1, 'kept');");
+    old.pragma('user_version = 1');
+    old.close();
+    assert.throws(() => openDb(oldFile), /another Tickweek version \(schema 1.*Move it aside/);
+    const check = new Database(oldFile, { readonly: true });
+    assert.equal(check.prepare('SELECT name FROM target').pluck().get(), 'kept');
+    assert.equal(check.pragma('user_version', { simple: true }), 1);
+    check.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('buildStats: combined target scores and streaks; its sources have none', () => {
@@ -96,23 +108,16 @@ test('buildStats: combined target scores and streaks; its sources have none', ()
 });
 
 // ---------- API ----------
-test('combined target: create, derive, score, protect', async () => {
-  // Last week exists first, so it keeps Running 3/7 and Weight training 2/7.
+test('combined target: derive, score, protect, validate', async () => {
+  // Last week exists first: its snapshot stays as it was whatever changes this week.
   assert.equal((await call('GET', '/api/week?monday=2026-11-09')).status, 200);
   const running = await byName('Running'), weights = await byName('Weight training');
+  const ex = await byName('Exercise'), fast = await byName('Intermittent fast');
+  assert.equal(running.part_of, ex.id);
 
-  assert.equal((await call('POST', '/api/targets', { name: 'Exercise', kind: 'combined', goal_days: 4 })).status, 400, 'needs sources');
-  assert.equal((await call('POST', '/api/targets', { name: 'Exercise', kind: 'combined', goal_days: null, sources: [running.id] })).status, 400, 'needs a goal');
-  const fast = await byName('Intermittent fast');
-  const made = await call('POST', '/api/targets', { name: 'Exercise', kind: 'combined', goal_days: 4, sources: [running.id, weights.id] });
-  assert.equal(made.status, 201);
-  const ex = made.body;
-  assert.equal(ex.kind, 'combined');
-  assert.equal((await call('POST', '/api/targets', { name: 'Nested', kind: 'combined', goal_days: 2, sources: [ex.id] })).status, 400, 'no nesting');
-
-  const r = await byName('Running');
-  assert.equal(r.goal_days, null);
-  assert.equal(r.part_of, ex.id);
+  assert.equal((await call('POST', '/api/targets', { name: 'Cardio', kind: 'combined', goal_days: 4 })).status, 400, 'needs sources');
+  assert.equal((await call('POST', '/api/targets', { name: 'Cardio', kind: 'combined', goal_days: null, sources: [running.id] })).status, 400, 'needs a goal');
+  assert.equal((await call('POST', '/api/targets', { name: 'Cardio', kind: 'combined', goal_days: 2, sources: [ex.id] })).status, 400, 'no nesting');
   assert.equal((await call('PATCH', `/api/targets/${running.id}`, { goal_days: 3 })).status, 400, 'a source has no goal of its own');
   assert.equal((await call('PATCH', `/api/targets/${running.id}`, { name: 'Run' })).status, 200, 'but can be renamed');
 
@@ -123,21 +128,14 @@ test('combined target: create, derive, score, protect', async () => {
   assert.equal((await call('PUT', '/api/entry', { date: '2026-11-18', target_id: ex.id, value: 1 })).status, 400, 'not tappable');
 
   const wk = (await call('GET', '/api/week')).body;
-  const exw = wk.targets.find((t) => t.id === ex.id);
-  assert.equal(exw.done, 3);
+  assert.equal(wk.targets.find((t) => t.id === ex.id).done, 3);
   assert.deepEqual(Object.keys(wk.entries[ex.id]).sort(), ['2026-11-16', '2026-11-17', '2026-11-18']);
-  assert.equal(wk.targets.find((t) => t.id === running.id).part_of, ex.id);
   // fast 1/7 + snacks 0/7 + Exercise 3/4; the sources don't count
   assert.equal(wk.score, Math.round((4 / 18) * 100));
 
-  const last = (await call('GET', '/api/week?monday=2026-11-09')).body;
-  assert.equal(last.targets.find((t) => t.id === running.id).goal_days, 3, 'past week keeps its goals');
-  assert.ok(!last.targets.some((t) => t.id === ex.id));
-
   // Export: CSV column for Exercise, JSON format 2 with part_of.
   const csv = (await call('GET', '/api/export.csv')).body.replace(/^﻿/, '').trimEnd().split('\r\n');
-  const head = csv[0].split(',');
-  const col = head.indexOf('Exercise');
+  const col = csv[0].split(',').indexOf('Exercise');
   assert.ok(col > 0);
   assert.deepEqual(csv.slice(-3).map((l) => l.split(',')[col]), ['1', '1', '1']);
   const json = (await call('GET', '/api/export.json')).body;
@@ -146,7 +144,12 @@ test('combined target: create, derive, score, protect', async () => {
   assert.equal(json.weeks.find((w) => w.monday === '2026-11-16').targets.find((t) => t.target_id === running.id).part_of, ex.id);
 });
 
-test('combined target: change sources, retire', async () => {
+test('combined target: add one, change sources, retire', async () => {
+  const fast = await byName('Intermittent fast'), snacks = await byName('No snacks');
+  const made = await call('POST', '/api/targets', { name: 'Habits', kind: 'combined', goal_days: 5, sources: [fast.id, snacks.id] });
+  assert.equal(made.status, 201);
+  assert.equal((await byName('No snacks')).goal_days, null, 'a new source loses its goal');
+
   const ex = await byName('Exercise'), running = await byName('Run'), weights = await byName('Weight training');
   assert.equal((await call('PATCH', `/api/targets/${ex.id}`, { sources: [] })).status, 400);
   assert.equal((await call('PATCH', `/api/targets/${ex.id}`, { sources: [running.id], goal_days: 2 })).status, 200);
@@ -160,5 +163,8 @@ test('combined target: change sources, retire', async () => {
   assert.equal(r.goal_days, null);
   const wk = (await call('GET', '/api/week')).body;
   assert.ok(!wk.targets.some((t) => t.id === ex.id));
-  assert.equal(wk.targets.find((t) => t.id === running.id).goal_days, null);
+
+  const last = (await call('GET', '/api/week?monday=2026-11-09')).body;
+  assert.equal(last.targets.find((t) => t.id === running.id).part_of, ex.id, 'past week keeps its grouping');
+  assert.equal(last.targets.find((t) => t.id === snacks.id).goal_days, 7, '…and its goals');
 });

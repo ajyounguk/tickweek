@@ -27,8 +27,8 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 
 ## Targets
 
-- **Configurable**: add, rename, reorder, retire. Starting set: intermittent fast, no snacks, exercise (likely split
-  into e.g. running and weight training).
+- **Configurable**: add, rename, reorder, retire. Starting set: intermittent fast 7/7, no snacks 7/7, and Exercise 4/7
+  combined from running (miles) and weight training (minutes).
 - **Three kinds**:
   - **Tick**: done / not done.
   - **Number**: a value with a unit (e.g. weight training in minutes, running in miles). **Any value > 0 counts as
@@ -114,5 +114,8 @@ The current week's score and streaks are "in progress" until the week closes.
 | `entry` | date, target_id, value (1 for a tick; the number for number targets; none for combined: derived), updated_at |
 | `weigh_in` | monday_date (PK), kg, entered_on, late (bool) |
 | `setting` | key, value (goal_kg, corrections_mode, …) |
+
+One schema, created in one go on an empty database (`PRAGMA user_version` = 2). A database from another version is
+refused with a message, never changed: start fresh (decided 19 Nov 2026: no data to keep, so no migrations).
 
 Scores, streaks and records are computed from these, not stored.

@@ -6,7 +6,13 @@ import { TZ } from './dates.js';
 const PORT = Number(process.env.PORT || 3000);
 const DATA_DIR = process.env.DATA_DIR || process.argv[2] || path.resolve('data'); // argv: `npm run demo`
 
-const db = openDb(path.join(DATA_DIR, 'tickweek.db'));
+let db;
+try {
+  db = openDb(path.join(DATA_DIR, 'tickweek.db'));
+} catch (e) {
+  console.error(`tickweek: ${e.message}`); // e.g. a database from another schema version: say so, don't dump a stack
+  process.exit(1);
+}
 // Dev/demo only: TICKWEEK_NOW pins the clock (e.g. for screenshots). Unset in normal use.
 const pinned = process.env.TICKWEEK_NOW ? new Date(process.env.TICKWEEK_NOW) : null;
 if (pinned && Number.isNaN(pinned.getTime())) throw new Error('TICKWEEK_NOW is not a valid date');

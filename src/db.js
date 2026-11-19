@@ -3,31 +3,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { weekDates } from './dates.js';
 
-// Numbered migrations, tracked with PRAGMA user_version. Append only; never edit a shipped one.
-export const MIGRATIONS = [
-  // 1: initial schema + starting targets
-  `
+// One schema, created in one go on an empty database and tracked with PRAGMA user_version.
+// A database from another schema version is refused, never touched: move it aside to start fresh.
+export const SCHEMA_VERSION = 2;
+const SCHEMA = `
   CREATE TABLE target (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
-    kind        TEXT NOT NULL CHECK (kind IN ('tick','number')),
+    kind        TEXT NOT NULL CHECK (kind IN ('tick','number','combined')),
     unit        TEXT,
-    goal_days   INTEGER NOT NULL DEFAULT 7 CHECK (goal_days BETWEEN 1 AND 7),
+    goal_days   INTEGER CHECK (goal_days IS NULL OR goal_days BETWEEN 1 AND 7), -- NULL: no goal (logged, not scored)
     sort_order  INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    archived_at TEXT
+    archived_at TEXT,
+    part_of     INTEGER REFERENCES target(id)                                   -- the combined target it counts towards
   );
   CREATE TABLE week (
     monday_date TEXT PRIMARY KEY,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- Each week's own copy of the targets, goals and groupings, so past weeks never shift.
   CREATE TABLE week_target (
     monday_date TEXT NOT NULL REFERENCES week(monday_date),
     target_id   INTEGER NOT NULL REFERENCES target(id),
-    goal_days   INTEGER NOT NULL,
+    goal_days   INTEGER,
     sort_order  INTEGER NOT NULL,
+    part_of     INTEGER,
     PRIMARY KEY (monday_date, target_id)
   );
+  -- Only tick and number targets have entries; a combined target's days are derived (src/combined.js).
   CREATE TABLE entry (
     date       TEXT NOT NULL,
     target_id  INTEGER NOT NULL REFERENCES target(id),
@@ -45,68 +49,32 @@ export const MIGRATIONS = [
     key   TEXT PRIMARY KEY,
     value TEXT
   );
-  INSERT INTO target (name, kind, unit, goal_days, sort_order) VALUES
-    ('Intermittent fast', 'tick',   NULL,    7, 1),
-    ('No snacks',         'tick',   NULL,    7, 2),
-    ('Running',           'number', 'miles', 3, 3),
-    ('Weight training',   'number', 'min',   2, 4);
-  `,
-  // 2: combined targets. Kind 'combined' ticks itself from its sources; goal_days may be NULL (no goal: logged,
-  // not scored); part_of = the combined target a target counts towards (also kept per week in the snapshot).
-  // SQLite can't change a CHECK in place, so both tables are rebuilt (foreign keys are off during migrations).
-  `
-  CREATE TABLE target_v2 (
-    id          INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL,
-    kind        TEXT NOT NULL CHECK (kind IN ('tick','number','combined')),
-    unit        TEXT,
-    goal_days   INTEGER CHECK (goal_days IS NULL OR goal_days BETWEEN 1 AND 7),
-    sort_order  INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    archived_at TEXT,
-    part_of     INTEGER REFERENCES target(id)
-  );
-  INSERT INTO target_v2 (id, name, kind, unit, goal_days, sort_order, created_at, archived_at)
-    SELECT id, name, kind, unit, goal_days, sort_order, created_at, archived_at FROM target;
-  DROP TABLE target;
-  ALTER TABLE target_v2 RENAME TO target;
-
-  CREATE TABLE week_target_v2 (
-    monday_date TEXT NOT NULL REFERENCES week(monday_date),
-    target_id   INTEGER NOT NULL REFERENCES target(id),
-    goal_days   INTEGER,
-    sort_order  INTEGER NOT NULL,
-    part_of     INTEGER,
-    PRIMARY KEY (monday_date, target_id)
-  );
-  INSERT INTO week_target_v2 (monday_date, target_id, goal_days, sort_order)
-    SELECT monday_date, target_id, goal_days, sort_order FROM week_target;
-  DROP TABLE week_target;
-  ALTER TABLE week_target_v2 RENAME TO week_target;
-  `,
-];
+  -- Starting set: Exercise is done by either a run or a weights session.
+  INSERT INTO target (id, name, kind, unit, goal_days, sort_order, part_of) VALUES
+    (1, 'Intermittent fast', 'tick',     NULL,    7,    1, NULL),
+    (2, 'No snacks',         'tick',     NULL,    7,    2, NULL),
+    (5, 'Exercise',          'combined', NULL,    4,    5, NULL),
+    (3, 'Running',           'number',   'miles', NULL, 3, 5),
+    (4, 'Weight training',   'number',   'min',   NULL, 4, 5);
+`;
 
 export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
-  migrate(db);
   db.pragma('foreign_keys = ON');
-  return db;
-}
-
-/** Runs the pending migrations with foreign keys off (table rebuilds need that), then checks nothing dangles. */
-export function migrate(db, upTo = MIGRATIONS.length) {
-  db.pragma('foreign_keys = OFF');
-  const current = db.pragma('user_version', { simple: true });
-  for (let v = current; v < upTo; v++) {
+  const version = db.pragma('user_version', { simple: true });
+  if (version === 0) {
     db.transaction(() => {
-      db.exec(MIGRATIONS[v]);
-      const broken = db.pragma('foreign_key_check');
-      if (broken.length) throw new Error(`migration ${v + 1} left ${broken.length} broken references`);
-      db.pragma(`user_version = ${v + 1}`);
+      db.exec(SCHEMA);
+      db.pragma(`user_version = ${SCHEMA_VERSION}`);
     })();
+  } else if (version !== SCHEMA_VERSION) {
+    db.close();
+    throw new Error(`${file} is from another Tickweek version (schema ${version}, this one needs ${SCHEMA_VERSION}). `
+      + 'Move it aside to start fresh.');
   }
+  return db;
 }
 
 // ---------- data access ----------

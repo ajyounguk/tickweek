@@ -34,7 +34,8 @@ test('health', async () => {
 test('current week has the seeded targets and an edit window', async () => {
   const { body } = await call('GET', '/api/week');
   assert.equal(body.monday, '2026-11-16');
-  assert.deepEqual(body.targets.map((t) => t.name), ['Intermittent fast', 'No snacks', 'Running', 'Weight training']);
+  assert.deepEqual(body.targets.map((t) => t.name), ['Intermittent fast', 'No snacks', 'Running', 'Weight training', 'Exercise']);
+  assert.deepEqual(body.targets.map((t) => t.goal_days), [7, 7, null, null, 4], 'Running and Weight training count towards Exercise');
   assert.deepEqual(body.days.map((d) => d.editable), [true, true, true, false, false, false, false]);
   assert.equal(body.days[2].isToday, true);
   assert.equal(body.score, 0);
@@ -55,8 +56,8 @@ test('ticks, numbers, score and locks', async () => {
   assert.equal((await call('PUT', '/api/entry', { date: '2026-11-17', target_id: fast.id, value: 7 })).body.value, 1);
 
   const { body } = await call('GET', '/api/week');
-  // fast 2/7, snacks 0/7, running 1/3, weights 0/2 → 3/19
-  assert.equal(body.score, Math.round((3 / 19) * 100));
+  // fast 2/7, snacks 0/7, Exercise 1/4 (the run); Running itself has no goal → 3/18
+  assert.equal(body.score, Math.round((3 / 18) * 100));
   assert.equal(body.entries[running.id]['2026-11-17'], 3.46);
 
   // clearing (0) removes the entry
@@ -93,19 +94,19 @@ test('corrections mode unlocks older weeks, and a correction keeps the late flag
 
 test('target changes apply from the current week on; past snapshot is kept', async () => {
   const { body: targets } = await call('GET', '/api/targets');
-  const running = targets.find((t) => t.name === 'Running');
-  await call('PATCH', `/api/targets/${running.id}`, { goal_days: 4 });
+  const fast = targets.find((t) => t.name === 'Intermittent fast');
+  await call('PATCH', `/api/targets/${fast.id}`, { goal_days: 6 });
   await call('POST', `/api/targets/${targets.find((t) => t.name === 'No snacks').id}/archive`);
   const added = await call('POST', '/api/targets', { name: 'Steps 10k', kind: 'tick', goal_days: 5 });
   assert.equal(added.status, 201);
 
   const now = (await call('GET', '/api/week')).body;
-  assert.deepEqual(now.targets.map((t) => t.name), ['Intermittent fast', 'Running', 'Weight training', 'Steps 10k']);
-  assert.equal(now.targets.find((t) => t.name === 'Running').goal_days, 4);
+  assert.deepEqual(now.targets.map((t) => t.name), ['Intermittent fast', 'Running', 'Weight training', 'Exercise', 'Steps 10k']);
+  assert.equal(now.targets.find((t) => t.name === 'Intermittent fast').goal_days, 6);
 
   const last = (await call('GET', '/api/week?monday=2026-11-09')).body;
-  assert.equal(last.targets.length, 4);
-  assert.equal(last.targets.find((t) => t.name === 'Running').goal_days, 3);
+  assert.equal(last.targets.length, 5);
+  assert.equal(last.targets.find((t) => t.name === 'Intermittent fast').goal_days, 7);
   assert.ok(last.targets.some((t) => t.name === 'No snacks'));
 });
 
@@ -152,10 +153,10 @@ test('export: JSON has everything, CSV has one row per day', async () => {
   assert.match(j.headers.get('content-disposition'), /^attachment; filename="?tickweek-2026-11-23\.json"?$/);
   const data = await j.json();
   assert.equal(data.weightUnit, 'kg');
-  assert.equal(data.targets.length, 5, 'retired targets included');
+  assert.equal(data.targets.length, 6, 'retired targets included');
   assert.deepEqual(data.weeks.map((w) => w.monday), ['2026-11-09', '2026-11-16', '2026-11-23']);
-  const running = data.targets.find((t) => t.name === 'Running');
-  assert.equal(data.weeks[0].targets.find((t) => t.target_id === running.id).goal_days, 3, 'per-week goals kept');
+  const fast = data.targets.find((t) => t.name === 'Intermittent fast');
+  assert.equal(data.weeks[0].targets.find((t) => t.target_id === fast.id).goal_days, 7, 'per-week goals kept');
   assert.deepEqual(data.weighIns.map((w) => [w.monday_date, w.kg, w.late]), [['2026-11-09', 92, true], ['2026-11-16', 90.2, true], ['2026-11-23', 89.9, false]]);
   assert.equal(data.entries.length, 3);
 
@@ -164,9 +165,9 @@ test('export: JSON has everything, CSV has one row per day', async () => {
   assert.match(c.headers.get('content-type'), /^text\/csv/);
   assert.match(c.headers.get('content-disposition'), /tickweek-2026-11-23\.csv/);
   const lines = (await c.text()).replace(/^﻿/, '').trimEnd().split('\r\n');
-  assert.equal(lines[0], 'date,day,week,weigh-in kg,weigh-in st/lb,late,Intermittent fast,Running (miles),Weight training (min),Steps 10k,No snacks');
+  assert.equal(lines[0], 'date,day,week,weigh-in kg,weigh-in st/lb,late,Intermittent fast,Running (miles),Weight training (min),Exercise,Steps 10k,No snacks');
   assert.equal(lines.length, 1 + 15, '09/11 to 23/11');
-  assert.equal(lines[1], '2026-11-09,Mon,2026-11-09,92,14 st 6.8 lb,yes,,,,,');
-  assert.equal(lines[7], '2026-11-15,Sun,2026-11-09,,,,1,,,,');
-  assert.equal(lines.at(-1), '2026-11-23,Mon,2026-11-23,89.9,14 st 2.2 lb,,,,,,');
+  assert.equal(lines[1], '2026-11-09,Mon,2026-11-09,92,14 st 6.8 lb,yes,,,,,,');
+  assert.equal(lines[7], '2026-11-15,Sun,2026-11-09,,,,1,,,,,');
+  assert.equal(lines.at(-1), '2026-11-23,Mon,2026-11-23,89.9,14 st 2.2 lb,,,,,,,');
 });
