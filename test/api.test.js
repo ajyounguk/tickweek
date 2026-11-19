@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb, makeRepo } from '../src/db.js';
@@ -26,7 +27,8 @@ async function call(method, url, body) {
 }
 
 test('health', async () => {
-  assert.deepEqual((await call('GET', '/health')).body, { ok: true });
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.deepEqual((await call('GET', '/health')).body, { ok: true, version });
 });
 
 test('current week has the seeded targets and an edit window', async () => {

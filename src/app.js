@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { todayISO, isISODate, mondayOf, addDays, weekDates, ddmm, canEditDate, canEditWeighIn } from './dates.js';
 import { daysDone, weekScore, isCleanSweep } from './scoring.js';
@@ -7,6 +8,7 @@ import { buildStats, fullDays } from './stats.js';
 import { exportJson, exportCsv } from './export.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(readFileSync(path.join(here, '..', 'package.json'), 'utf8'));
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 class BadRequest extends Error {
@@ -26,7 +28,7 @@ export function createApp({ repo, now = () => new Date() }) {
   // The current week always exists, so target changes and the edit window have something to work on.
   app.use('/api', (req, res, next) => { repo.ensureWeek(thisMonday()); next(); });
 
-  app.get('/health', (req, res) => res.json({ ok: true }));
+  app.get('/health', (req, res) => res.json({ ok: true, version }));
 
   // ---------- week ----------
   app.get('/api/week', (req, res) => {

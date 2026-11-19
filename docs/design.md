@@ -21,7 +21,7 @@ and the weight written next to the date on Mondays.
 | Repo | Public GitHub repo | Code only: no personal data and no details of the host network; no registry token needed to pull |
 | Image | GitHub Action builds to GHCR on a version tag (`v0.1.0`, …) | Repeatable, versioned, roll back by changing the tag |
 | Deploy | Container pulls a **pinned tag**, bumped by hand. Never `:latest` | Updates happen deliberately, with an easy rollback |
-| Monitoring | `/health` endpoint (also the Docker healthcheck) | Plugs into whatever uptime monitor is in use |
+| Monitoring | `/health` endpoint (also the Docker healthcheck; returns the app version, shown at the foot of How it works) | Plugs into whatever uptime monitor is in use |
 
 Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` env on the container).
 
