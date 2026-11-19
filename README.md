@@ -33,7 +33,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/this-week-dark.png">
-  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks, numbers and a Star day row">
+  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks and numbers, an Exercise row that fills itself from Running and Weight training, and a Star day row">
 </picture>
 
 </td>
@@ -98,7 +98,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
-  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: targets with reorder and edit, add a target, goal weight, corrections mode and data export">
+  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: targets with reorder and edit (Running and Weight training listed under Exercise), add a target, goal weight, corrections mode and data export">
 </picture>
 
 </td>
