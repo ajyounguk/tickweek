@@ -107,9 +107,9 @@ button, input, select { font: inherit; color: inherit; }
 
 /* Stars for met rows: every filled box shows ★ once the row reaches its goal. */
 .cell .g { display: grid; place-items: center; line-height: 1; }
-.cell .g.star svg { width: 24px; height: 24px; }
-.cell.num .g.star svg { width: 18px; height: 18px; }
-.cell .g.star small { font-size: 10px; font-weight: 700; margin-top: 1px; }
+.cell .g.star svg { width: 30px; height: 30px; }
+.cell.num .g.star svg { width: 24px; height: 24px; }
+.cell .g.star small { font-size: 10px; font-weight: 700; margin-top: -1px; }
 /* Crossing tap: old glyph out, new glyph in, layered; --i staggers the cascade. */
 .cell.glow { animation: cellglow .5s ease-out both; animation-delay: calc(var(--i) * 70ms); }
 .cell.morph > span { grid-area: 1 / 1; display: grid; place-items: center; }

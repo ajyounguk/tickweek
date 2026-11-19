@@ -75,6 +75,11 @@
       <li>Changes apply from this week on. Past weeks keep the targets they had.</li>
     </ul>
   </section>
+
+  <p class="small muted" id="version" style="text-align:center"></p>
 </main>
+<script type="module">
+  fetch('/health').then((r) => r.json()).then((h) => { document.getElementById('version').textContent = `Tickweek ${h.version}`; }).catch(() => {});
+</script>
 </body>
 </html>
