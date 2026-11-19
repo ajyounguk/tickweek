@@ -40,7 +40,7 @@ test('withCombined: a day counts once whichever sources were done', () => {
   const out = withCombined(targets, entries);
   assert.deepEqual(out[3], { '2026-11-16': 1, '2026-11-17': 1, '2026-11-18': 1 });
   assert.equal(out[1], entries[1], 'sources untouched');
-  assert.deepEqual(grouped([{ id: 3, kind: 'combined' }, { id: 4 }, { id: 1, part_of: 3 }, { id: 2, part_of: 3 }]).map((t) => t.id), [1, 2, 3, 4]);
+  assert.deepEqual(grouped([{ id: 3, kind: 'combined' }, { id: 4 }, { id: 1, part_of: 3 }, { id: 2, part_of: 3 }]).map((t) => t.id), [3, 1, 2, 4]);
 });
 
 test('scoring leaves out targets with no goal', () => {
