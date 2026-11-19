@@ -51,7 +51,8 @@ function renderTargets() {
   const list = data.targets.filter((t) => !t.archived || t.daysDone > 0);
   $('targetstats').replaceChildren(...(list.length ? list.map((t) => {
     const u = t.streakUnit === 'days' ? 'day' : 'week';
-    const goal = t.goal_days === 7 ? 'every day' : `${t.goal_days} days a week`;
+    const parent = t.part_of ? data.targets.find((x) => x.id === t.part_of) : null;
+    const goal = t.goal_days == null ? (parent ? `in ${parent.name}` : 'no goal') : t.goal_days === 7 ? 'every day' : `${t.goal_days} days a week`;
     const done = t.kind === 'number' && t.total
       ? `${fmtNum(t.total)} ${t.unit ?? ''}`.trim()
       : `${plural(t.daysDone, 'day')} done`;
@@ -59,7 +60,7 @@ function renderTargets() {
       h('div', { class: 'info' },
         h('div', {}, t.name, t.archived ? h('span', { class: 'pill', style: 'margin-left:6px' }, 'retired') : null),
         h('div', { class: 'meta' }, `${goal} · ${done}`)),
-      h('div', { style: 'text-align:right' },
+      t.goal_days == null ? null : h('div', { style: 'text-align:right' },
         t.streak.longest
           ? [h('div', { class: 'streak' + (t.streak.current >= 2 ? ' on' : '') }, `${plural(t.streak.current, u)} in a row`),
              h('div', { class: 'meta small muted' }, `best ${t.streak.longest}`)]
@@ -140,6 +141,9 @@ function renderHero() {
 let month = null; // 'YYYY-MM'
 const firstMonth = () => (data.weeks.length ? data.weeks.at(-1).monday.slice(0, 7) : data.today.slice(0, 7));
 
+/** Dots are for targets with a goal: a combined target's sources show up through its own dot. */
+const scoredOf = (w) => w.targets.filter((t) => t.goal_days != null);
+
 function renderMonth() {
   month ??= data.today.slice(0, 7);
   const [y, m] = month.split('-').map(Number);
@@ -157,18 +161,18 @@ function renderMonth() {
     h('span', {}, 'Score ', h('b', {}, st.score != null ? `${st.score}%` : '–')),
     h('span', {}, 'Star days ', h('b', {}, `${st.fullDays}/${st.starDayOf}`)));
   const dots = h('div', { class: 'small muted', style: 'margin-bottom:6px' },
-    cur?.targets.length ? `Dots: ${cur.targets.map((t) => t.name).join(' · ')}` : '');
+    cur?.targets.length ? `Dots: ${scoredOf(cur).map((t) => t.name).join(' · ')}` : '');
 
   const head = h('div', { class: 'wrow whead' }, h('div', {}), ...['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => h('div', {}, d)), h('div', {}, '%'));
   const rows = weeks.map((w) => {
     const full = new Set(w.fullDays);
     const cells = w.days.map((d) => {
       const future = d > data.today;
-      const done = w.targets.filter((t) => w.entries[t.id]?.[d] > 0);
+      const done = scoredOf(w).filter((t) => w.entries[t.id]?.[d] > 0);
       return h('div', {
         class: 'wcell' + (full.has(d) ? ' full' : '') + (future ? ' future' : ''),
         title: `${ddmm(d)}: ${future ? 'not yet' : done.length ? done.map((t) => t.name).join(', ') : 'nothing ticked'}`,
-      }, future ? null : w.targets.map((t) => h('i', { class: w.entries[t.id]?.[d] > 0 ? 'on' : '' })));
+      }, future ? null : scoredOf(w).map((t) => h('i', { class: w.entries[t.id]?.[d] > 0 ? 'on' : '' })));
     });
     const wi = w.weighIn;
     const prev = wi ? weighMap.get(addDays(w.monday, -7)) : null;

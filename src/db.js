@@ -4,7 +4,7 @@ import path from 'node:path';
 import { weekDates } from './dates.js';
 
 // Numbered migrations, tracked with PRAGMA user_version. Append only; never edit a shipped one.
-const MIGRATIONS = [
+export const MIGRATIONS = [
   // 1: initial schema + starting targets
   `
   CREATE TABLE target (
@@ -51,22 +51,59 @@ const MIGRATIONS = [
     ('Running',           'number', 'miles', 3, 3),
     ('Weight training',   'number', 'min',   2, 4);
   `,
+  // 2: combined targets. Kind 'combined' ticks itself from its sources; goal_days may be NULL (no goal: logged,
+  // not scored); part_of = the combined target a target counts towards (also kept per week in the snapshot).
+  // SQLite can't change a CHECK in place, so both tables are rebuilt (foreign keys are off during migrations).
+  `
+  CREATE TABLE target_v2 (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('tick','number','combined')),
+    unit        TEXT,
+    goal_days   INTEGER CHECK (goal_days IS NULL OR goal_days BETWEEN 1 AND 7),
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    archived_at TEXT,
+    part_of     INTEGER REFERENCES target(id)
+  );
+  INSERT INTO target_v2 (id, name, kind, unit, goal_days, sort_order, created_at, archived_at)
+    SELECT id, name, kind, unit, goal_days, sort_order, created_at, archived_at FROM target;
+  DROP TABLE target;
+  ALTER TABLE target_v2 RENAME TO target;
+
+  CREATE TABLE week_target_v2 (
+    monday_date TEXT NOT NULL REFERENCES week(monday_date),
+    target_id   INTEGER NOT NULL REFERENCES target(id),
+    goal_days   INTEGER,
+    sort_order  INTEGER NOT NULL,
+    part_of     INTEGER,
+    PRIMARY KEY (monday_date, target_id)
+  );
+  INSERT INTO week_target_v2 (monday_date, target_id, goal_days, sort_order)
+    SELECT monday_date, target_id, goal_days, sort_order FROM week_target;
+  DROP TABLE week_target;
+  ALTER TABLE week_target_v2 RENAME TO week_target;
+  `,
 ];
 
 export function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
   migrate(db);
+  db.pragma('foreign_keys = ON');
   return db;
 }
 
-function migrate(db) {
+/** Runs the pending migrations with foreign keys off (table rebuilds need that), then checks nothing dangles. */
+export function migrate(db, upTo = MIGRATIONS.length) {
+  db.pragma('foreign_keys = OFF');
   const current = db.pragma('user_version', { simple: true });
-  for (let v = current; v < MIGRATIONS.length; v++) {
+  for (let v = current; v < upTo; v++) {
     db.transaction(() => {
       db.exec(MIGRATIONS[v]);
+      const broken = db.pragma('foreign_key_check');
+      if (broken.length) throw new Error(`migration ${v + 1} left ${broken.length} broken references`);
       db.pragma(`user_version = ${v + 1}`);
     })();
   }
@@ -81,7 +118,7 @@ export function makeRepo(db) {
     firstWeek: db.prepare('SELECT MIN(monday_date) AS m FROM week'),
     allWeeks: db.prepare('SELECT monday_date FROM week ORDER BY monday_date').pluck(),
     allSnapshots: db.prepare(`
-      SELECT wt.monday_date, t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order
+      SELECT wt.monday_date, t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order, wt.part_of
       FROM week_target wt JOIN target t ON t.id = wt.target_id`),
     allEntries: db.prepare('SELECT date, target_id, value FROM entry'),
     allWeighIns: db.prepare('SELECT * FROM weigh_in ORDER BY monday_date'),
@@ -89,9 +126,9 @@ export function makeRepo(db) {
     allTargets: db.prepare('SELECT * FROM target ORDER BY archived_at IS NOT NULL, sort_order, id'),
     target: db.prepare('SELECT * FROM target WHERE id = ?'),
     clearSnapshot: db.prepare('DELETE FROM week_target WHERE monday_date = ?'),
-    insertSnapshot: db.prepare('INSERT INTO week_target (monday_date, target_id, goal_days, sort_order) VALUES (?, ?, ?, ?)'),
+    insertSnapshot: db.prepare('INSERT INTO week_target (monday_date, target_id, goal_days, sort_order, part_of) VALUES (?, ?, ?, ?, ?)'),
     weekTargets: db.prepare(`
-      SELECT t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order
+      SELECT t.id, t.name, t.kind, t.unit, wt.goal_days, wt.sort_order, wt.part_of
       FROM week_target wt JOIN target t ON t.id = wt.target_id
       WHERE wt.monday_date = ? ORDER BY wt.sort_order, t.id`),
     inSnapshot: db.prepare('SELECT 1 FROM week_target WHERE monday_date = ? AND target_id = ?'),
@@ -116,6 +153,9 @@ export function makeRepo(db) {
     setSort: db.prepare('UPDATE target SET sort_order = ? WHERE id = ?'),
     archive: db.prepare("UPDATE target SET archived_at = datetime('now') WHERE id = ?"),
     unarchive: db.prepare('UPDATE target SET archived_at = NULL, sort_order = ? WHERE id = ?'),
+    clearSources: db.prepare('UPDATE target SET part_of = NULL WHERE part_of = ?'),
+    addSource: db.prepare('UPDATE target SET part_of = ?, goal_days = NULL WHERE id = ?'),
+    leave: db.prepare('UPDATE target SET part_of = NULL WHERE id = ?'),
   };
 
   const repo = {
@@ -197,12 +237,26 @@ export function makeRepo(db) {
     reorder(ids) {
       db.transaction(() => ids.forEach((id, i) => q.setSort.run(i + 1, id)))();
     },
-    archive: (id) => q.archive.run(id),
+    /** A combined target's sources: replaces the old set. Sources lose their own goal while they count towards it. */
+    setSources(combinedId, ids) {
+      db.transaction(() => {
+        q.clearSources.run(combinedId);
+        for (const id of ids) q.addSource.run(combinedId, id);
+      })();
+    },
+    /** Retiring frees the target's sources (they keep no goal until one is set) and takes it out of its combined target. */
+    archive(id) {
+      db.transaction(() => {
+        q.archive.run(id);
+        q.clearSources.run(id);
+        q.leave.run(id);
+      })();
+    },
     unarchive: (id) => q.unarchive.run(q.maxSort.get().m + 1, id),
   };
 
   function writeSnapshot(monday) {
-    for (const t of q.activeTargets.all()) q.insertSnapshot.run(monday, t.id, t.goal_days, t.sort_order);
+    for (const t of q.activeTargets.all()) q.insertSnapshot.run(monday, t.id, t.goal_days, t.sort_order, t.part_of);
   }
 
   return repo;

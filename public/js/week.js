@@ -1,4 +1,5 @@
 import { api, toast, h, TICK_SVG, fmtNum, stLbToKg, kgToStLb, formatStLb } from '/js/common.js';
+import { withCombined, grouped } from '/js/combined.js';
 
 const $ = (id) => document.getElementById(id);
 let data = null;
@@ -22,15 +23,24 @@ async function load(monday) {
 
 // ---------- local scoring (mirrors src/scoring.js) ----------
 function recompute() {
+  data.entries = withCombined(data.targets, data.entries); // combined targets follow their sources
   let got = 0, max = 0;
   for (const t of data.targets) {
     t.done = Object.values(data.entries[t.id] ?? {}).filter((v) => v > 0).length;
+    if (t.goal_days == null) continue; // no goal: logged, not scored
     got += Math.min(t.done, t.goal_days);
     max += t.goal_days;
   }
   data.score = max ? Math.round((got / max) * 100) : null;
-  data.cleanSweep = data.targets.length > 0 && data.targets.every((t) => t.done >= t.goal_days);
+  const scored = data.targets.filter((t) => t.goal_days != null);
+  data.cleanSweep = scored.length > 0 && scored.every((t) => t.done >= t.goal_days);
 }
+
+const goalMet = (t) => t.goal_days != null && t.done >= t.goal_days;
+const parentOf = (t) => (t.part_of ? data.targets.find((x) => x.id === t.part_of) : null);
+const sourcesOf = (t) => data.targets.filter((s) => s.part_of === t.id);
+/** A source shows stars when its combined target is met. */
+const showsStars = (t) => goalMet(parentOf(t) ?? t);
 
 // ---------- render ----------
 function nextMondayDdmm() {
@@ -185,18 +195,18 @@ function goalLine() {
   );
 }
 
-/** `change` = { id, dir: 'in' | 'out' } when a tap just crossed that target's goal: animate only that row. */
+/** `change` = { ids, dir: 'in' | 'out' } when a tap just crossed a goal: animate only those rows. */
 function renderGrid(change) {
   const card = $('gridcard');
   card.classList.toggle('hidden', !data.targets.length); // the score card already says "add some in Settings"
   const head = h('div', { class: 'grid' }, data.days.map((d) =>
     h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (d.dow === 'Mon' ? ' weighday' : ''), title: d.dow === 'Mon' ? 'Weigh-in day' : null },
       h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null)));
-  const blocks = data.targets.map((t) => {
-    const met = t.done >= t.goal_days;
+  const blocks = grouped(data.targets).map((t) => {
+    const met = showsStars(t);
     // Cascade order over the filled boxes: left-to-right into stars, right-to-left back to ticks.
     let order = null;
-    if (change?.id === t.id) {
+    if (change?.ids.has(t.id)) {
       const filled = data.days.filter((d) => (data.entries[t.id]?.[d.date] ?? 0) > 0).map((d) => d.date);
       if (change.dir === 'out') filled.reverse();
       order = new Map(filled.map((date, i) => [date, i]));
@@ -205,7 +215,8 @@ function renderGrid(change) {
       h('div', { class: 'name' },
         t.name,
         t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
-        h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`),
+        t.kind === 'combined' ? h('span', { class: 'unit' }, sourcesOf(t).map((s) => s.name).join(' + ')) : null,
+        t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`) : null,
       ),
       h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
     );
@@ -246,18 +257,27 @@ const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentCo
 
 /** What a filled box shows: tick or number, or ★ (with the number small underneath) once the row has met its goal. */
 function glyph(t, v, star) {
-  if (!star) return t.kind === 'tick' ? h('span', { class: 'g', html: TICK_SVG }) : h('span', { class: 'g' }, fmtNum(v));
+  if (!star) return t.kind === 'number' ? h('span', { class: 'g' }, fmtNum(v)) : h('span', { class: 'g', html: TICK_SVG }); // combined draws as a tick
   return h('span', { class: 'g star', html: STAR_SVG }, t.kind === 'number' ? h('small', {}, fmtNum(v)) : null);
 }
 
-/** `anim` = { dir, i } when this box morphs as its row crosses the goal (i = position in the cascade). */
+/**
+ * `anim` = { dir, i } when this box morphs as its row crosses the goal (i = position in the cascade).
+ * A combined target's boxes aren't buttons: they fill themselves from its sources.
+ */
 function cell(t, d, met, anim) {
   const v = data.entries[t.id]?.[d.date] ?? 0;
   const done = v > 0;
-  const cls = ['cell', done && 'done', t.kind === 'number' && 'num', d.isToday && 'today', d.future && 'future', anim && 'morph', anim?.dir === 'in' && 'glow']
-    .filter(Boolean).join(' ');
-  const label = `${t.name}, ${d.dow} ${d.ddmm}: ${done ? (t.kind === 'number' ? `${fmtNum(v)} ${t.unit ?? ''}` : 'done') : 'not done'}${met ? ', goal met' : ''}`;
-  const btn = h('button', { class: cls, disabled: !d.editable, 'aria-label': label, 'aria-pressed': t.kind === 'tick' ? String(done) : null });
+  const auto = t.kind === 'combined';
+  const cls = ['cell', done && 'done', t.kind === 'number' && 'num', d.isToday && 'today', d.future && 'future',
+    auto && 'auto', auto && !d.editable && 'locked', anim && 'morph', anim?.dir === 'in' && 'glow'].filter(Boolean).join(' ');
+  const what = auto
+    ? (done ? `done (${sourcesOf(t).filter((s) => data.entries[s.id]?.[d.date] > 0).map((s) => s.name).join(', ')})` : 'not done')
+    : done ? (t.kind === 'number' ? `${fmtNum(v)} ${t.unit ?? ''}` : 'done') : 'not done';
+  const label = `${t.name}, ${d.dow} ${d.ddmm}: ${what}${met ? ', goal met' : ''}`;
+  const btn = auto
+    ? h('div', { class: cls, role: 'img', 'aria-label': label })
+    : h('button', { class: cls, disabled: !d.editable, 'aria-label': label, 'aria-pressed': t.kind === 'tick' ? String(done) : null });
   if (done && anim) {
     // Old glyph out, new glyph in, layered in the same spot; CSS staggers by --i.
     btn.style.setProperty('--i', anim.i);
@@ -266,7 +286,7 @@ function cell(t, d, met, anim) {
   } else if (done) {
     btn.append(glyph(t, v, met));
   }
-  btn.addEventListener('click', () => (t.kind === 'tick' ? setEntry(t, d.date, done ? 0 : 1) : openPad(t, d, v)));
+  if (!auto) btn.addEventListener('click', () => (t.kind === 'tick' ? setEntry(t, d.date, done ? 0 : 1) : openPad(t, d, v)));
   return btn;
 }
 
@@ -274,14 +294,20 @@ function cell(t, d, met, anim) {
 async function setEntry(t, date, value) {
   const before = data.entries[t.id]?.[date];
   const map = (data.entries[t.id] ??= {});
+  // The goal that can flip: the target's own, or (for a source) its combined target's.
+  const watched = parentOf(t) ?? t;
   recompute();
-  const wasMet = t.done >= t.goal_days;
+  const wasMet = goalMet(watched);
   if (value > 0) map[date] = value; else delete map[date];
   recompute();
-  const isMet = t.done >= t.goal_days;
-  if (wasMet !== isMet) animUntil = Date.now() + 70 * t.done + 400; // stagger + morph + glow
+  const isMet = goalMet(watched);
+  let change = null;
+  if (wasMet !== isMet) {
+    change = { ids: new Set([watched.id, ...sourcesOf(watched).map((s) => s.id)]), dir: isMet ? 'in' : 'out' };
+    animUntil = Date.now() + 70 * 7 + 400; // stagger + morph + glow
+  }
   renderScore();
-  renderGrid(wasMet === isMet ? null : { id: t.id, dir: isMet ? 'in' : 'out' });
+  renderGrid(change);
   try {
     const r = await api('PUT', '/api/entry', { date, target_id: t.id, value });
     if (r.value > 0) map[date] = r.value; else delete map[date];
