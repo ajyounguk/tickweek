@@ -105,6 +105,29 @@ button, input, select { font: inherit; color: inherit; }
 .cell.future { border-style: dashed; opacity: .5; }
 .cell svg { width: 22px; height: 22px; }
 
+/* Stars for met rows: every filled box shows ★ once the row reaches its goal. */
+.cell .g { display: grid; place-items: center; line-height: 1; }
+.cell .g.star svg { width: 24px; height: 24px; }
+.cell.num .g.star svg { width: 18px; height: 18px; }
+.cell .g.star small { font-size: 10px; font-weight: 700; margin-top: 1px; }
+/* Crossing tap: old glyph out, new glyph in, layered; --i staggers the cascade. */
+.cell.glow { animation: cellglow .5s ease-out both; animation-delay: calc(var(--i) * 70ms); }
+.cell.morph > span { grid-area: 1 / 1; display: grid; place-items: center; }
+.cell.morph > .out { animation: glyphout .15s ease-in both; animation-delay: calc(var(--i) * 70ms); }
+.cell.morph > .in { animation: glyphin .3s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--i) * 70ms + 90ms); }
+@keyframes glyphout { to { transform: scale(0) rotate(90deg); opacity: 0; } }
+@keyframes glyphin { from { transform: scale(0) rotate(-180deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cellglow {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cell.glow { animation: none; }
+  .cell.morph > .out { animation: fade .15s ease both reverse; }
+  .cell.morph > .in { animation: fade .15s ease both; }
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
 /* ---------- weigh-in ---------- */
 .weigh .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .weigh .delta { font-size: 14px; font-weight: 600; }
