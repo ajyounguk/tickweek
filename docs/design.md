@@ -65,6 +65,12 @@ The current week's score and streaks are "in progress" until the week closes.
    Tick targets toggle on tap; number targets open a number box with the phone keyboard (clear = 0 = not done). Shows the week score, the
    N/7 progress per target and the weigh-in box, then a compact **Streaks** card ("15 days in a row"); the full
    streak detail lives on History under Achievements.
+   **Stars for met rows**: once a target reaches its goal for the week, every filled box in that row shows ★ instead
+   of a tick (number boxes: ★ with the value small underneath); extra days past the goal go in as ★, and the row goes
+   back to ticks if it drops below the goal. Only the tap that crosses the goal animates (a left-to-right cascade of
+   ticks spinning into stars with a brief glow; back to ticks right-to-left without the glow; a crossfade under
+   reduced motion). Page loads and past weeks show the stars statically. Same green box, no new colours. History
+   month dots are unchanged.
    Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,

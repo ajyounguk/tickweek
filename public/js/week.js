@@ -185,7 +185,8 @@ function goalLine() {
   );
 }
 
-function renderGrid() {
+/** `change` = { id, dir: 'in' | 'out' } when a tap just crossed that target's goal: animate only that row. */
+function renderGrid(change) {
   const card = $('gridcard');
   card.classList.toggle('hidden', !data.targets.length); // the score card already says "add some in Settings"
   const head = h('div', { class: 'grid' }, data.days.map((d) =>
@@ -193,13 +194,20 @@ function renderGrid() {
       h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null)));
   const blocks = data.targets.map((t) => {
     const met = t.done >= t.goal_days;
+    // Cascade order over the filled boxes: left-to-right into stars, right-to-left back to ticks.
+    let order = null;
+    if (change?.id === t.id) {
+      const filled = data.days.filter((d) => (data.entries[t.id]?.[d.date] ?? 0) > 0).map((d) => d.date);
+      if (change.dir === 'out') filled.reverse();
+      order = new Map(filled.map((date, i) => [date, i]));
+    }
     return h('div', { class: 'target' },
       h('div', { class: 'name' },
         t.name,
         t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
         h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`),
       ),
-      h('div', { class: 'grid' }, data.days.map((d) => cell(t, d))),
+      h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
     );
   });
   card.replaceChildren(head, ...blocks, fullDayRow());
@@ -234,15 +242,29 @@ function renderStreaks() {
 
 const weekTotal = (t) => Object.values(data.entries[t.id] ?? {}).reduce((a, v) => a + v, 0);
 
-function cell(t, d) {
+const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.4.9-4.6 4.5 1.1 6.4L12 17.4l-5.7 3 1.1-6.4-4.6-4.5 6.4-.9z"/></svg>';
+
+/** What a filled box shows: tick or number, or ★ (with the number small underneath) once the row has met its goal. */
+function glyph(t, v, star) {
+  if (!star) return t.kind === 'tick' ? h('span', { class: 'g', html: TICK_SVG }) : h('span', { class: 'g' }, fmtNum(v));
+  return h('span', { class: 'g star', html: STAR_SVG }, t.kind === 'number' ? h('small', {}, fmtNum(v)) : null);
+}
+
+/** `anim` = { dir, i } when this box morphs as its row crosses the goal (i = position in the cascade). */
+function cell(t, d, met, anim) {
   const v = data.entries[t.id]?.[d.date] ?? 0;
   const done = v > 0;
-  const cls = ['cell', done && 'done', t.kind === 'number' && 'num', d.isToday && 'today', d.future && 'future'].filter(Boolean).join(' ');
-  const label = `${t.name}, ${d.dow} ${d.ddmm}: ${done ? (t.kind === 'number' ? `${fmtNum(v)} ${t.unit ?? ''}` : 'done') : 'not done'}`;
+  const cls = ['cell', done && 'done', t.kind === 'number' && 'num', d.isToday && 'today', d.future && 'future', anim && 'morph', anim?.dir === 'in' && 'glow']
+    .filter(Boolean).join(' ');
+  const label = `${t.name}, ${d.dow} ${d.ddmm}: ${done ? (t.kind === 'number' ? `${fmtNum(v)} ${t.unit ?? ''}` : 'done') : 'not done'}${met ? ', goal met' : ''}`;
   const btn = h('button', { class: cls, disabled: !d.editable, 'aria-label': label, 'aria-pressed': t.kind === 'tick' ? String(done) : null });
-  if (done) {
-    if (t.kind === 'tick') btn.innerHTML = TICK_SVG;
-    else btn.textContent = fmtNum(v);
+  if (done && anim) {
+    // Old glyph out, new glyph in, layered in the same spot; CSS staggers by --i.
+    btn.style.setProperty('--i', anim.i);
+    const into = anim.dir === 'in';
+    btn.append(h('span', { class: 'out' }, glyph(t, v, !into)), h('span', { class: 'in' }, glyph(t, v, into)));
+  } else if (done) {
+    btn.append(glyph(t, v, met));
   }
   btn.addEventListener('click', () => (t.kind === 'tick' ? setEntry(t, d.date, done ? 0 : 1) : openPad(t, d, v)));
   return btn;
@@ -252,10 +274,14 @@ function cell(t, d) {
 async function setEntry(t, date, value) {
   const before = data.entries[t.id]?.[date];
   const map = (data.entries[t.id] ??= {});
+  recompute();
+  const wasMet = t.done >= t.goal_days;
   if (value > 0) map[date] = value; else delete map[date];
   recompute();
+  const isMet = t.done >= t.goal_days;
+  if (wasMet !== isMet) animUntil = Date.now() + 70 * t.done + 400; // stagger + morph + glow
   renderScore();
-  renderGrid();
+  renderGrid(wasMet === isMet ? null : { id: t.id, dir: isMet ? 'in' : 'out' });
   try {
     const r = await api('PUT', '/api/entry', { date, target_id: t.id, value });
     if (r.value > 0) map[date] = r.value; else delete map[date];
@@ -270,7 +296,8 @@ async function setEntry(t, date, value) {
 }
 
 // Streaks and star days are computed server-side: re-fetch shortly after a burst of taps settles.
-let refreshT;
+// The refresh rebuilds the grid, so it waits for any star cascade to finish.
+let refreshT, animUntil = 0;
 function refreshSoon() {
   clearTimeout(refreshT);
   refreshT = setTimeout(async () => {
@@ -283,7 +310,7 @@ function refreshSoon() {
       renderGrid();
       renderStreaks();
     } catch { /* next load will catch up */ }
-  }, 700);
+  }, Math.max(700, animUntil - Date.now()));
 }
 
 // ---------- number entry (plain input, so the phone's own number keyboard comes up, as for the weigh-in) ----------
