@@ -12,15 +12,19 @@ const goalOptions = (sel, none) => [
 ];
 const byId = (id) => targets.find((t) => t.id === id);
 const sourcesOf = (t) => targets.filter((s) => s.part_of === t.id && !s.archived_at);
+/** Label over a combined target's checkboxes. */
+const SOURCES_LABEL = 'Made up of';
 const kindLabel = (t) => (t.kind === 'tick' ? 'Tick' : t.kind === 'number' ? `Number${t.unit ? ` (${t.unit})` : ''}` : 'Combined');
 function describe(t) {
   const goal = t.goal_days != null ? `${t.goal_days}/7` : t.part_of && byId(t.part_of) ? `in ${byId(t.part_of).name}` : 'no goal';
   const from = t.kind === 'combined' && !sourcesOf(t).length ? ' · counts nothing yet' : '';
   return `${kindLabel(t)}${from} · ${goal}`;
 }
-/** Checkboxes for a combined target's sources: every active tick/number target. */
+/** Checkboxes for a combined target's sources: every active tick/number target, one per line, picked ones first. */
 function sourceChecks(selfId, picked) {
-  return h('div', { class: 'checks' }, targets.filter((t) => !t.archived_at && t.kind !== 'combined').map((t) =>
+  const pool = targets.filter((t) => !t.archived_at && t.kind !== 'combined');
+  const sorted = [...pool.filter((t) => picked.includes(t.id)), ...pool.filter((t) => !picked.includes(t.id))];
+  return h('div', { class: 'checks' }, sorted.map((t) =>
     h('label', { class: 'chk' },
       h('input', { type: 'checkbox', value: t.id, checked: picked.includes(t.id) }),
       t.name,
@@ -55,6 +59,8 @@ function renderTargets() {
   $('archivedcard').classList.toggle('hidden', !archived.length);
   $('archived').replaceChildren(...archived.map((t) => h('li', {},
     h('div', { class: 'info' }, h('div', {}, t.name), h('div', { class: 'meta' }, describe(t))),
+    h('button', { class: 'btn link danger', onclick: () => confirm(`Delete “${t.name}” forever? Its ticks go from every past week too, so old scores change. This can’t be undone.`)
+      && act(`/api/targets/${t.id}`, 'DELETE', null, 'Deleted') }, 'Delete'),
     h('button', { class: 'btn', onclick: () => act(`/api/targets/${t.id}/unarchive`, 'POST', null, 'Restored') }, 'Restore'),
   )));
 }
@@ -85,19 +91,21 @@ function editRow(t) {
     const body = { name: name.value, unit: unit?.value };
     if (goal) body.goal_days = goal.value === '' ? null : Number(goal.value);
     if (checks) body.sources = checkedIds(checks);
-    act(`/api/targets/${t.id}`, 'PATCH', body, 'Saved').then((ok) => { if (ok) editingId = null; renderTargets(); });
+    act(`/api/targets/${t.id}`, 'PATCH', body, 'Saved, from this week on').then((ok) => { if (ok) editingId = null; renderTargets(); });
   };
   const freed = combined ? sourcesOf(t).map((s) => s.name) : [];
   const retireMsg = `Retire “${t.name}”? It disappears from this week on; its history stays.`
     + (freed.length ? ` ${freed.join(' and ')} will have no goal until you set one.` : '');
   return h('li', {},
     h('div', { class: 'form', style: 'flex:1' },
+      h('div', { class: 'edithead' }, h('span', { class: `pill kind${combined ? ' combined' : ''}` }, kindLabel(t)),
+        src ? h('span', { class: 'small muted' }, `in ${byId(t.part_of).name}`) : null),
       h('label', {}, h('span', {}, 'Name'), name),
       h('div', { class: 'two' },
         unit ? h('label', {}, h('span', {}, 'Unit'), unit) : null,
         goal ? h('label', {}, h('span', {}, 'Goal'), goal) : null,
       ),
-      checks ? h('div', {}, h('span', { class: 'small muted' }, 'Counts'), checks) : null,
+      checks ? h('div', {}, h('span', { class: 'small muted srclabel' }, SOURCES_LABEL), checks) : null,
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: save }, 'Save'),
         h('button', { class: 'btn link', onclick: () => { editingId = null; renderTargets(); } }, 'Cancel'),
@@ -107,9 +115,6 @@ function editRow(t) {
             && act(`/api/targets/${t.id}/archive`, 'POST', null, 'Retired').then((ok) => { if (ok) { editingId = null; renderTargets(); } }),
         }, 'Retire'),
       ),
-      h('div', { class: 'small muted' }, src
-        ? `Counts towards ${byId(t.part_of).name}, so it has no goal of its own`
-        : `${kindLabel(t).split(' ')[0]} target (the kind can’t change once created)`),
     ),
   );
 }
@@ -138,6 +143,11 @@ function syncKind() {
   const sel = F.goal_days.value === '' ? null : Number(F.goal_days.value);
   F.goal_days.replaceChildren(...goalOptions(k === 'combined' ? sel ?? 4 : sel, k !== 'combined').filter(Boolean));
 }
+form.querySelector('.srclabel').textContent = SOURCES_LABEL;
+const openAdd = (open) => { form.classList.toggle('hidden', !open); $('addopen').classList.toggle('hidden', open); if (open) F.name.focus(); };
+function closeAdd() { form.reset(); syncKind(); openAdd(false); }
+$('addopen').addEventListener('click', () => openAdd(true));
+$('addcancel').addEventListener('click', closeAdd);
 F.goal_days.append(...goalOptions(7, true).filter(Boolean));
 F.kind.addEventListener('change', syncKind);
 form.addEventListener('submit', async (e) => {
@@ -145,7 +155,7 @@ form.addEventListener('submit', async (e) => {
   const body = { name: F.name.value, kind: F.kind.value, unit: F.unit.value, goal_days: F.goal_days.value === '' ? null : Number(F.goal_days.value) };
   if (body.kind === 'combined') body.sources = checkedIds($('addsources'));
   const ok = await act('/api/targets', 'POST', body, 'Added');
-  if (ok) { form.reset(); syncKind(); renderAddSources(); }
+  if (ok) { closeAdd(); renderAddSources(); }
 });
 
 // ---------- goal weight + corrections ----------

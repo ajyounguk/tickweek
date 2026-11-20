@@ -98,7 +98,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
-  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: targets with reorder and edit (Running and Weight training listed under Exercise), add a target, goal weight, corrections mode and data export">
+  <img src="docs/screenshots/settings-light.png" width="280" alt="Settings: goal weight, targets with reorder and edit (Running and Weight training listed under Exercise), add a target, data export and corrections mode">
 </picture>
 
 </td>
@@ -111,6 +111,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 - Add your targets: a simple tick, or a number with a unit. Say how many days a week each one asks for.
 - Combine targets: Exercise 4 days a week, done by either a run or a weights session.
 - Rename, reorder or retire them at any time. Changes apply from this week on; past weeks keep their scores.
+  A retired target can also be deleted for good.
 - Set a goal weight to see your progress towards it.
 - Export your data any time: CSV (one row per day, opens in a spreadsheet) or JSON (everything).
 
@@ -138,7 +139,7 @@ docker run -d --name tickweek \
   -p 3000:3000 \
   -v /path/to/tickweek-data:/data \
   -e TZ=Europe/London \
-  ghcr.io/ajyounguk/tickweek:0.7.0
+  ghcr.io/ajyounguk/tickweek:0.8.0
 ```
 
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and

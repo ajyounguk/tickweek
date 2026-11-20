@@ -241,6 +241,14 @@ export function createApp({ repo, now = () => new Date() }) {
     res.json(repo.target(t.id));
   });
 
+  app.delete('/api/targets/:id', (req, res) => {
+    const t = mustTarget(req.params.id);
+    if (!t.archived_at) fail('retire it first');
+    repo.remove(t.id);
+    afterTargetChange();
+    res.json({ ok: true });
+  });
+
   // ---------- export ----------
   app.get('/api/export.json', (req, res) => {
     const today = todayISO(now());

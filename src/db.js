@@ -124,6 +124,10 @@ export function makeRepo(db) {
     clearSources: db.prepare('UPDATE target SET part_of = NULL WHERE part_of = ?'),
     addSource: db.prepare('UPDATE target SET part_of = ?, goal_days = NULL WHERE id = ?'),
     leave: db.prepare('UPDATE target SET part_of = NULL WHERE id = ?'),
+    purgeEntries: db.prepare('DELETE FROM entry WHERE target_id = ?'),
+    purgeSnapshots: db.prepare('DELETE FROM week_target WHERE target_id = ?'),
+    ungroupSnapshots: db.prepare('UPDATE week_target SET part_of = NULL WHERE part_of = ?'),
+    deleteTarget: db.prepare('DELETE FROM target WHERE id = ?'),
   };
 
   const repo = {
@@ -221,6 +225,16 @@ export function makeRepo(db) {
       })();
     },
     unarchive: (id) => q.unarchive.run(q.maxSort.get().m + 1, id),
+    /** Deleting a retired target removes it everywhere, past weeks included (their scores change). */
+    remove(id) {
+      db.transaction(() => {
+        q.clearSources.run(id);
+        q.ungroupSnapshots.run(id);
+        q.purgeEntries.run(id);
+        q.purgeSnapshots.run(id);
+        q.deleteTarget.run(id);
+      })();
+    },
   };
 
   function writeSnapshot(monday) {

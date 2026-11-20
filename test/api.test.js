@@ -110,6 +110,17 @@ test('target changes apply from the current week on; past snapshot is kept', asy
   assert.ok(last.targets.some((t) => t.name === 'No snacks'));
 });
 
+test('only a retired target can be deleted, with its entries and snapshots', async () => {
+  const { body: tmp } = await call('POST', '/api/targets', { name: 'Temp', kind: 'tick', goal_days: 3 });
+  await call('PUT', '/api/entry', { date: (await call('GET', '/api/week')).body.monday, target_id: tmp.id, value: 1 });
+  assert.equal((await call('DELETE', `/api/targets/${tmp.id}`)).status, 400);
+  await call('POST', `/api/targets/${tmp.id}/archive`);
+  assert.equal((await call('DELETE', `/api/targets/${tmp.id}`)).status, 200);
+  assert.ok(!(await call('GET', '/api/targets')).body.some((t) => t.name === 'Temp'));
+  assert.ok(!(await call('GET', '/api/week')).body.targets.some((t) => t.name === 'Temp'));
+  assert.equal((await call('GET', '/api/history')).status, 200);
+});
+
 test('validation', async () => {
   assert.equal((await call('POST', '/api/targets', { name: '', kind: 'tick' })).status, 400);
   assert.equal((await call('POST', '/api/targets', { name: 'x', kind: 'tick', goal_days: 8 })).status, 400);

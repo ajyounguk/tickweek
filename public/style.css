@@ -162,7 +162,8 @@ input.n3 { width: 5.2em; }
 }
 a.btn { display: inline-block; text-decoration: none; color: var(--text); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.btn.danger { color: var(--danger); }
+.btn.danger, .btn.link.danger { color: var(--danger); }
+.settings .card h2 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
 .btn.link { border: 0; background: none; color: var(--accent); padding: 4px 6px; font-weight: 500; }
 .btn:disabled { opacity: .5; cursor: default; }
 
@@ -194,8 +195,12 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .form .two > * { flex: 1; min-width: 120px; }
 .form label > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 3px; }
 .form input, .form select { width: 100%; }
-.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; }
-.checks .chk { display: inline-flex; align-items: center; gap: 6px; }
+.checks { display: grid; gap: 8px; margin-top: 6px; }
+.checks .chk { display: flex; align-items: center; gap: 8px; }
+.edithead { display: flex; align-items: center; gap: 8px; }
+.pill.kind.combined { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+#addopen { margin-top: 10px; }
+.addform { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .form .checks input { width: 18px; height: 18px; accent-color: var(--accent); }
 .tlist li.src { padding-left: 14px; }
 .tlist li.grp { margin: 0 -8px; padding-left: 8px; padding-right: 8px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
