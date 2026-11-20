@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Tickweek">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
-<body>
+<body class="settings">
 <main>
   <header class="top">
     <a class="brand" href="/"><img src="/icons/favicon.svg" alt="" width="28" height="28"><span class="wm">Tick<span>week</span></span></a>
@@ -22,32 +22,6 @@
   </header>
 
   <h1 class="pagetitle">Settings</h1>
-
-  <section class="card">
-    <h2>Targets</h2>
-    <p class="small muted" style="margin-top:-4px">Changes apply from this week on. Past weeks keep the targets and goals they had.</p>
-    <ul class="tlist" id="targets"></ul>
-  </section>
-
-  <section class="card">
-    <h2>Add a target</h2>
-    <form class="form" id="addform" autocomplete="off">
-      <label><span>Name</span><input type="text" name="name" maxlength="40" required placeholder="e.g. 10k steps"></label>
-      <div class="two">
-        <label><span>Kind</span>
-          <select name="kind">
-            <option value="tick">Tick</option>
-            <option value="number">Number</option>
-            <option value="combined">Combined</option>
-          </select>
-        </label>
-        <label class="unitfield hidden"><span>Unit</span><input type="text" name="unit" maxlength="12" placeholder="miles, min…"></label>
-        <label><span>Goal</span><select name="goal_days"></select></label>
-      </div>
-      <div class="sourcesfield hidden"><span class="small muted">Counts</span><div id="addsources"></div></div>
-      <div><button class="btn primary" type="submit">Add target</button></div>
-    </form>
-  </section>
 
   <section class="card">
     <h2>Goal weight</h2>
@@ -60,14 +34,33 @@
   </section>
 
   <section class="card">
-    <h2>Corrections mode</h2>
-    <label class="switch"><input type="checkbox" id="corrections"> Unlock older weeks</label>
-    <p class="small muted" style="margin-bottom:0">For genuine fixes only. Normally only this week (up to today) and last week (until this week’s weigh-in) can be edited.</p>
+    <h2>Targets</h2>
+    <ul class="tlist" id="targets"></ul>
+    <button class="btn" id="addopen" type="button">+ Add target</button>
+    <form class="form addform hidden" id="addform" autocomplete="off">
+      <label><span>Name</span><input type="text" name="name" maxlength="40" required placeholder="e.g. 10k steps"></label>
+      <label><span>Kind</span>
+        <select name="kind">
+          <option value="tick">Tick: done or not</option>
+          <option value="number">Number: miles, min…</option>
+          <option value="combined">Combined: any of others</option>
+        </select>
+      </label>
+      <div class="two">
+        <label class="unitfield hidden"><span>Unit</span><input type="text" name="unit" maxlength="12" placeholder="miles, min…"></label>
+        <label><span>Goal</span><select name="goal_days"></select></label>
+      </div>
+      <div class="sourcesfield hidden"><span class="small muted srclabel"></span><div id="addsources"></div></div>
+      <div class="row">
+        <button class="btn primary" type="submit">Add</button>
+        <button class="btn link" type="button" id="addcancel">Cancel</button>
+      </div>
+    </form>
   </section>
 
   <section class="card hidden" id="archivedcard">
     <h2>Retired targets</h2>
-    <p class="small muted" style="margin-top:-4px">History and records are kept. Restoring adds the target back from this week on.</p>
+    <p class="small muted" style="margin-top:-4px">History kept. Restore adds it back from this week; Delete removes it for good.</p>
     <ul class="tlist" id="archived"></ul>
   </section>
 
@@ -77,6 +70,12 @@
       <a class="btn" href="/api/export.csv" download>Download CSV</a>
       <a class="btn" href="/api/export.json" download>Download JSON</a>
     </div>
+  </section>
+
+  <section class="card">
+    <h2>Corrections mode</h2>
+    <label class="switch"><input type="checkbox" id="corrections"> Unlock older weeks</label>
+    <p class="small muted" style="margin-bottom:0">For genuine fixes only.</p>
   </section>
 </main>
 <script type="module" src="/js/settings.js"></script>

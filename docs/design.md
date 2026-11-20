@@ -41,6 +41,8 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
   days doesn't matter. A target can also have **no goal**: logged only, left out of scores, streaks and History dots.
 - **Changes apply from the current week on.** Each week keeps a snapshot of the targets and goals it had, so past scores
   never shift. Retiring a target archives it: its history and records stay.
+  A retired target can then be **deleted** for good (20 Nov 2026): its entries go from every week, so past scores
+  can change; it asks first. Only retired targets can be deleted.
 
 ## Weight
 
@@ -99,6 +101,9 @@ The current week's score and streaks are "in progress" until the week closes.
 4. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, the corrections switch, and
    **Export**: CSV (one row per day: date, weigh-in in kg and st/lb, a column per target) and JSON (everything,
    lossless). *(Added 16 Nov 2026.)*
+   Order (20 Nov 2026): Goal weight, Targets (with "+ Add target" opening the form in place), Retired, Export,
+   Corrections last. Editing shows the kind as a pill at the top (Combined in green); a combined target's sources are
+   picked under **"Made up of"**, one per line, ticked ones first. The Kind dropdown says what each kind is.
 
 ## Edit window
 
