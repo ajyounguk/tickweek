@@ -1,4 +1,4 @@
-export { stLbToKg, kgToStLb, formatStLb } from '/js/weight.js';
+export { stLbToKg, kgToStLb, formatStLb, diffKg } from '/js/weight.js';
 
 export async function api(method, url, body) {
   const res = await fetch(url, {

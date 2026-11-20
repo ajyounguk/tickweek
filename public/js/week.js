@@ -1,4 +1,4 @@
-import { api, toast, h, TICK_SVG, fmtNum, stLbToKg, kgToStLb, formatStLb } from '/js/common.js';
+import { api, toast, h, TICK_SVG, fmtNum, stLbToKg, kgToStLb, formatStLb, diffKg } from '/js/common.js';
 import { withCombined, grouped } from '/js/combined.js';
 
 const $ = (id) => document.getElementById(id);
@@ -43,12 +43,6 @@ const sourcesOf = (t) => data.targets.filter((s) => s.part_of === t.id);
 const showsStars = (t) => goalMet(parentOf(t) ?? t);
 
 // ---------- render ----------
-function nextMondayDdmm() {
-  const d = new Date(data.days[0].date + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + 7);
-  return d.toISOString().slice(8, 10) + '/' + d.toISOString().slice(5, 7);
-}
-
 /** '16/11 – 22/11/26', or '28/12/26 – 03/01/27' when the week crosses New Year. */
 function weekRange(from, to) {
   const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -81,19 +75,37 @@ function renderNotices() {
   if (!anyEditable && !data.current) box.append(h('div', { class: 'notice' }, 'This week is locked. ', h('a', { href: '/settings' }, 'Corrections mode'), ' unlocks it.'));
 }
 
+/**
+ * The week in a word instead of a %. This week is judged on pace: what's done against what the goals need by now,
+ * counting finished days only (today can't put you behind). A past week gets a verdict from its score.
+ * `warn` turns the word and bar amber.
+ */
+function weekWord() {
+  if (data.cleanSweep) return { word: 'Perfect week 🏆' };
+  if (!data.current) {
+    const s = data.score;
+    return s >= 80 ? { word: 'Great week' } : s >= 60 ? { word: 'Good week' } : { word: 'Tough week', warn: true };
+  }
+  const scored = data.targets.filter((t) => t.goal_days != null);
+  const got = scored.reduce((a, t) => a + Math.min(t.done, t.goal_days), 0);
+  const gone = data.days.filter((d) => d.date < data.today).length; // finished days
+  if (!gone) return { word: got ? 'Started' : 'Fresh week' };
+  const pace = got / scored.reduce((a, t) => a + (t.goal_days * gone) / 7, 0);
+  return pace >= 1.2 ? { word: 'Great' } : pace >= 0.85 ? { word: 'On track' } : { word: 'Catch-up time', warn: true };
+}
+
 function renderScore() {
   const card = $('scorecard');
   if (data.score == null) {
     card.replaceChildren(h('div', { class: 'muted' }, 'No targets this week. ', h('a', { href: '/settings' }, 'Add some in Settings.')));
     return;
   }
+  const { word, warn } = weekWord();
   card.replaceChildren(
-    h('div', { class: 'score' },
-      h('span', { class: 'big' }, `${data.score}%`),
-      h('span', { class: 'muted' }, 'week score'),
-      data.cleanSweep ? h('span', { class: 'badge', style: 'margin-left:auto' }, '🏆 Perfect week') : data.current ? h('span', { class: 'pill', style: 'margin-left:auto' }, 'in progress') : null,
+    h('div', { class: 'score' + (warn ? ' warn' : '') },
+      h('span', { class: 'big' }, word),
     ),
-    h('div', { class: 'bar' }, h('i', { style: `width:${data.score}%` })),
+    h('div', { class: 'bar' + (warn ? ' warn' : '') }, h('i', { style: `width:${data.score}%` })),
   );
 }
 
@@ -101,20 +113,22 @@ function renderWeigh() {
   const card = $('weigh');
   const w = data.weighIn;
   card.className = 'card weigh' + (data.current && !w && data.weighInEditable ? ' due' : '');
+  const showing = w && !editingWeigh;
   const kids = [h('div', { class: 'row', style: 'margin-bottom:10px' },
-    h('h2', { style: 'margin:0' }, `Monday weigh-in · ${data.days[0].ddmm}`),
-    h('a', { href: '/help#monday', class: 'small', style: 'margin-left:auto' }, 'Why Monday?'))];
+    h('h2', { style: 'margin:0' }, `Weigh-in · ${data.days[0].ddmm}`),
+    showing && data.weighInEditable
+      ? h('button', { class: 'btn link small', style: 'margin-left:auto', onclick: () => { editingWeigh = true; renderWeigh(); } }, 'Edit') : null)];
   if (data.current && !w && data.weighInEditable) {
     const monday = data.days[0].isToday;
     kids.push(h('div', { class: 'small', style: 'margin:-4px 0 10px' },
       monday ? 'Step on the scales this morning.' : 'Missed Monday? You can still enter it (counts as late).'));
   }
 
-  if (w && !editingWeigh) {
+  if (showing) {
     const prev = data.prevWeighIn;
     let delta = null;
     if (prev) {
-      const diff = w.kg - prev.kg;
+      const diff = diffKg(w.kg, prev.kg);
       const cls = diff < 0 ? 'down' : diff > 0 ? 'up' : '';
       const arrow = diff < 0 ? '▼ ' : diff > 0 ? '▲ ' : '';
       delta = h('span', { class: `delta ${cls}` }, Math.abs(diff) < 0.02 ? 'no change' : arrow + formatStLb(Math.abs(diff)));
@@ -123,9 +137,7 @@ function renderWeigh() {
       h('span', { class: 'value' }, formatStLb(w.kg)),
       delta,
       w.late ? h('span', { class: 'pill warn' }, 'late') : null,
-      data.weighInEditable ? h('button', { class: 'btn link', style: 'margin-left:auto', onclick: () => { editingWeigh = true; renderWeigh(); } }, 'Edit') : null,
     ));
-    if (data.current) kids.push(h('div', { class: 'small muted', style: 'margin-top:4px' }, `Next weigh-in: Mon ${nextMondayDdmm()}`));
   } else if (data.weighInEditable) {
     kids.push(weighForm(w));
   } else {
@@ -134,12 +146,6 @@ function renderWeigh() {
 
   const goal = goalLine();
   if (goal) kids.push(goal);
-  if (data.personalBest && (data.prevWeighIn || data.losing.longest)) { // nothing to say until a second weigh-in
-    kids.push(h('div', { class: 'wstats' },
-      h('span', {}, 'Weight down ', h('b', {}, `${data.losing.current} wk${data.losing.current === 1 ? '' : 's'}`), ' in a row'),
-      h('span', {}, 'Lowest ', h('b', {}, formatStLb(data.personalBest.kg))),
-    ));
-  }
   card.replaceChildren(...kids);
 }
 
@@ -147,13 +153,13 @@ function weighForm(existing) {
   const base = existing?.kg ?? data.prevWeighIn?.kg ?? data.latestKg;
   const p = base ? kgToStLb(base) : null;
   const st = h('input', { type: 'number', class: 'n2', inputmode: 'numeric', min: 0, max: 60, step: 1, 'aria-label': 'stone', value: existing ? p.st : null, placeholder: p ? p.st : 'st' });
-  const lb = h('input', { type: 'number', class: 'n3', inputmode: 'decimal', min: 0, max: 13.9, step: 0.1, 'aria-label': 'pounds', value: existing ? p.lb : null, placeholder: p ? p.lb : 'lb' });
+  const lb = h('input', { type: 'number', class: 'n3', inputmode: 'numeric', min: 0, max: 13, step: 1, 'aria-label': 'pounds', value: existing ? p.lb : null, placeholder: p ? p.lb : 'lb' });
   // Same stone as last week is the common case: pre-fill it so only lb needs typing.
   if (!existing && p) st.value = p.st;
 
   const save = async () => {
     const s = Number(st.value), l = Number(lb.value || 0);
-    if (!st.value || !Number.isInteger(s) || s < 0 || l < 0 || l >= 14) return toast('Enter stone (whole) and lb (0–13.9)');
+    if (!st.value || !Number.isInteger(s) || s < 0 || !Number.isInteger(l) || l < 0 || l >= 14) return toast('Enter whole stone and lb (0–13)');
     try {
       const r = await api('PUT', '/api/weigh-in', { monday: data.monday, kg: stLbToKg(s, l) });
       toast(r.weighIn.late ? 'Saved (late weigh-in)' : 'Saved');
@@ -183,7 +189,7 @@ function goalLine() {
     return data.current ? h('div', { class: 'small muted', style: 'margin-top:10px' }, h('a', { href: '/settings' }, 'Set a goal weight'), ' to see how far there is to go.') : null;
   }
   if (data.latestKg == null) return null;
-  const toGo = Math.max(0, data.latestKg - data.goalKg);
+  const toGo = Math.max(0, diffKg(data.latestKg, data.goalKg));
   const span = data.startKg != null ? data.startKg - data.goalKg : 0;
   const pct = span > 0 ? Math.min(100, Math.max(0, ((data.startKg - data.latestKg) / span) * 100)) : toGo === 0 ? 100 : 0;
   return h('div', { style: 'margin-top:12px' },
@@ -199,9 +205,14 @@ function goalLine() {
 function renderGrid(change) {
   const card = $('gridcard');
   card.classList.toggle('hidden', !data.targets.length); // the score card already says "add some in Settings"
-  const head = h('div', { class: 'grid' }, data.days.map((d) =>
-    h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (d.dow === 'Mon' ? ' weighday' : ''), title: d.dow === 'Mon' ? 'Weigh-in day' : null },
-      h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null)));
+  const stars = new Set(data.fullDays);
+  const head = h('div', { class: 'grid' }, data.days.map((d) => {
+    const star = stars.has(d.date);
+    const title = [d.dow === 'Mon' && 'Weigh-in day', star && 'Star day: every goal done'].filter(Boolean).join(' · ') || null;
+    return h('div', { class: 'dayhead' + (d.isToday ? ' today' : '') + (d.dow === 'Mon' ? ' weighday' : '') + (star ? ' starday' : ''), title },
+      h('b', {}, d.dow), d.ddmm.slice(0, 2), d.dow === 'Mon' ? h('span', { class: 'scale', 'aria-hidden': 'true' }, ' ⚖') : null,
+      star ? h('span', { class: 'dstar', role: 'img', 'aria-label': 'star day', html: STAR_SVG }) : null);
+  }));
   // A combined target heads a .group block; its sources follow inside it.
   const blocks = [];
   let group = null;
@@ -211,7 +222,7 @@ function renderGrid(change) {
     else if (parentOf(t) && group) group.append(row);
     else { group = null; blocks.push(row); }
   }
-  card.replaceChildren(head, ...blocks, fullDayRow());
+  card.replaceChildren(head, ...blocks);
 }
 
 /** One target's row: name, unit or weekly total, N/goal pill, and its seven boxes. */
@@ -228,22 +239,11 @@ function targetRow(t, change) {
     h('div', { class: 'name' },
       t.name,
       t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
-      t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`) : null,
+      t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`)
+        : parentOf(t) ? null : h('span', { style: 'margin-left:auto', class: 'pill nogoal' }, 'no goal'),
     ),
     h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
   );
-}
-
-/** Bottom row: a ★ under each day where every 7/7 target was done. Only shown if the week has 7/7 targets. */
-function fullDayRow() {
-  if (!data.targets.some((t) => t.goal_days === 7)) return '';
-  const full = new Set(data.fullDays);
-  return h('div', { class: 'target fullrow' },
-    h('div', { class: 'name' }, 'Star day',
-      h('span', { style: 'margin-left:auto', class: 'pill' + (full.size ? ' met' : '') }, `★ ${full.size}`)),
-    h('div', { class: 'grid' }, data.days.map((d) =>
-      h('div', { class: 'fd' + (full.has(d.date) ? ' on' : '') + (d.future ? ' future' : ''), title: full.has(d.date) ? `${d.dow}: star day (every daily target done)` : null },
-        full.has(d.date) ? '★' : ''))));
 }
 
 /** Compact streaks for this week only: "Intermittent fast · 15 days in a row". Full detail lives on History. */

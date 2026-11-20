@@ -33,7 +33,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/this-week-dark.png">
-  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks and numbers, an Exercise row that fills itself from Running and Weight training, and a Star day row">
+  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks and numbers, an Exercise row that fills itself from Running and Weight training, and star days marked in the day headers">
 </picture>
 
 </td>
@@ -45,8 +45,8 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 - Tap a box to tick a target. Number targets (running, weights) ask for the miles or minutes.
 - Missed a day? Fill it in any time this week. Last week stays open until you weigh in.
-- The **Star day** row lights up ★ when you've hit every daily target that day.
-- Underneath: your week score, the Monday weigh-in and the streaks you're keeping alive.
+- A ★ appears next to the date on a **star day**: every target with a goal done that day.
+- Underneath: how the week's going in a word (On track, Great, Catch-up time…), the Monday weigh-in and the streaks you're keeping alive.
 
 </td>
 </tr>
@@ -138,7 +138,7 @@ docker run -d --name tickweek \
   -p 3000:3000 \
   -v /path/to/tickweek-data:/data \
   -e TZ=Europe/London \
-  ghcr.io/ajyounguk/tickweek:0.6.1
+  ghcr.io/ajyounguk/tickweek:0.7.0
 ```
 
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and

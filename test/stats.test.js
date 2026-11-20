@@ -43,11 +43,11 @@ test('losing streak: lower extends, same holds, higher or a missing week breaks'
   assert.deepEqual(losingStreak([], cur), { current: 0, longest: 0 });
 });
 
-test('full day = every 7/7 target done that day', () => {
-  const targets = [{ id: 1, goal_days: 7 }, { id: 2, goal_days: 7 }, { id: 3, goal_days: 3 }];
-  const entries = { 1: { '2026-11-16': 1, '2026-11-17': 1 }, 2: { '2026-11-16': 1 }, 3: {} };
-  assert.deepEqual(fullDays(targets, entries, ['2026-11-16', '2026-11-17']), ['2026-11-16']);
-  assert.deepEqual(fullDays([{ id: 3, goal_days: 3 }], entries, ['2026-11-16']), [], 'no 7/7 targets → no full days');
+test('star day = every target with a goal done that day', () => {
+  const targets = [{ id: 1, goal_days: 7 }, { id: 2, goal_days: 6 }, { id: 3, goal_days: 3 }, { id: 4, goal_days: null }];
+  const entries = { 1: { '2026-11-16': 1, '2026-11-17': 1 }, 2: { '2026-11-16': 1, '2026-11-17': 1 }, 3: { '2026-11-16': 1 }, 4: {} };
+  assert.deepEqual(fullDays(targets, entries, ['2026-11-16', '2026-11-17']), ['2026-11-16'], 'N/7 goals count, no-goal targets do not');
+  assert.deepEqual(fullDays([{ id: 4, goal_days: null }], entries, ['2026-11-16']), [], 'no goals → no star days');
 });
 
 test('buildStats pulls it together', () => {
@@ -79,10 +79,10 @@ test('buildStats pulls it together', () => {
   assert.equal(run.total, 9.5);
   assert.equal(s.weeks[0].cleanSweep, true);
   assert.equal(s.weeks[0].score, 100);
-  assert.equal(s.weeks[0].fullDays.length, 7);
+  assert.deepEqual(s.weeks[0].fullDays, ['2026-11-10', '2026-11-12'], 'Fast and Run both done');
   assert.deepEqual(s.losing, { current: 1, longest: 1 });
   assert.deepEqual(s.records.personalBest, { kg: 91.2, monday: '2026-11-16' });
   assert.equal(s.records.bestScore, 100);
   assert.equal(s.records.cleanSweeps, 1);
-  assert.equal(s.records.fullDays, 9);
+  assert.equal(s.records.fullDays, 3);
 });

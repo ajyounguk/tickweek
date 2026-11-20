@@ -55,11 +55,14 @@ export function losingStreak(weighIns, currentMonday) {
   return { current: alive ? run : 0, longest };
 }
 
-/** Dates in the week on which every 7/7 target of that week's snapshot is done (none if it has no 7/7 targets). */
+/**
+ * Star days: dates in the week on which every target with a goal (that week's snapshot, combined targets included)
+ * is done. None if the week has no target with a goal. `entries` must already carry the combined targets' days.
+ */
 export function fullDays(targets, entries, dates) {
-  const daily = targets.filter((t) => t.goal_days === 7);
-  if (!daily.length) return [];
-  return dates.filter((d) => daily.every((t) => entries[t.id]?.[d] > 0));
+  const scored = targets.filter((t) => t.goal_days != null);
+  if (!scored.length) return [];
+  return dates.filter((d) => scored.every((t) => entries[t.id]?.[d] > 0));
 }
 
 /**

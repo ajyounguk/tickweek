@@ -164,7 +164,7 @@ async function loadSettings() {
 
 $('goalsave').addEventListener('click', async () => {
   const s = Number($('goalst').value), l = Number($('goallb').value || 0);
-  if (!$('goalst').value || !Number.isInteger(s) || l < 0 || l >= 14) return toast('Enter stone (whole) and lb (0–13.9)');
+  if (!$('goalst').value || !Number.isInteger(s) || !Number.isInteger(l) || l < 0 || l >= 14) return toast('Enter whole stone and lb (0–13)');
   try { await api('PUT', '/api/settings', { goalKg: stLbToKg(s, l) }); toast('Goal saved'); await loadSettings(); }
   catch (e) { toast(e.message); }
 });
