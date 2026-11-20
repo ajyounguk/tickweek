@@ -167,7 +167,7 @@ test('export: JSON has everything, CSV has one row per day', async () => {
   const lines = (await c.text()).replace(/^﻿/, '').trimEnd().split('\r\n');
   assert.equal(lines[0], 'date,day,week,weigh-in kg,weigh-in st/lb,late,Intermittent fast,Running (miles),Weight training (min),Exercise,Steps 10k,No snacks');
   assert.equal(lines.length, 1 + 15, '09/11 to 23/11');
-  assert.equal(lines[1], '2026-11-09,Mon,2026-11-09,92,14 st 6.8 lb,yes,,,,,,');
+  assert.equal(lines[1], '2026-11-09,Mon,2026-11-09,92,14 st 7 lb,yes,,,,,,');
   assert.equal(lines[7], '2026-11-15,Sun,2026-11-09,,,,1,,,,,');
-  assert.equal(lines.at(-1), '2026-11-23,Mon,2026-11-23,89.9,14 st 2.2 lb,,,,,,,');
+  assert.equal(lines.at(-1), '2026-11-23,Mon,2026-11-23,89.9,14 st 2 lb,,,,,,,');
 });

@@ -47,16 +47,17 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 - **Strictly weekly, on Monday.** The point is that Monday's scales judge the weekend.
 - A forgotten weigh-in can still be entered later that week. It counts as that week's weigh-in, flagged **late**.
 - A week with **no** weigh-in breaks the weight-loss streak.
-- Shown as **stone/lb** (e.g. 14 st 3.4 lb), stored in **kg** (so a display switch is possible later).
+- Shown and entered as **stone and whole lb** (e.g. 14 st 3 lb; whole lb since 20 Nov 2026, changes worked out from the rounded weights), stored in **kg** (so a display switch is possible later).
 - **Goal weight** with a progress bar ("1 st 2 lb to go").
 
 ## Game layer (core set only: no XP, no badges)
 
 | Term | Rule |
 |---|---|
-| **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets with a goal. Going over a goal doesn't add points |
+| **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets with a goal. Going over a goal doesn't add points. Shown on History; This week shows a word instead |
+| **Week word** | This week, on pace (done vs goal × finished days ÷ 7): Fresh week / Started (Monday), Catch-up time (< 85%), On track, Great (≥ 120%). Past weeks: Great week (≥ 80%), Good week (≥ 60%), Tough week. Perfect week 🏆 when every goal is met. The bar under it shows the score with no number; amber for Catch-up / Tough (20 Nov 2026) |
 | **Perfect week** 🏆 | Every target reached its N/7 goal that week (was "clean sweep") |
-| **Star day** ★ | Every 7/7 target ticked on that day (was "full day") |
+| **Star day** ★ | Every target with a goal done that day, N/7 and combined targets included (was: every 7/7 target; changed 20 Nov 2026). Shown as a ★ after the date in the day header |
 | **Target streak** | 7/7 targets: consecutive days done. N/7 targets: consecutive weeks where the goal was met |
 | **Weight-loss streak** | Consecutive weekly weigh-ins, each lower than the one before. Same weight = neither extends nor breaks it; a missing week breaks it |
 | **Lowest weight** | Lowest weigh-in so far (all time) |
@@ -66,7 +67,7 @@ The current week's score and streaks are "in progress" until the week closes.
 ## Screens
 
 1. **This week** (main screen, phone-first): rows = targets, columns = Mon–Sun, big tap cells, today highlighted.
-   Tick targets toggle on tap; number targets open a number box with the phone keyboard (clear = 0 = not done). Shows the week score, the
+   Tick targets toggle on tap; number targets open a number box with the phone keyboard (clear = 0 = not done). Shows the week in a word, the
    N/7 progress per target and the weigh-in box, then a compact **Streaks** card ("15 days in a row"); the full
    streak detail lives on History under Achievements.
    **Stars for met rows**: once a target reaches its goal for the week, every filled box in that row shows ★ instead
@@ -78,11 +79,14 @@ The current week's score and streaks are "in progress" until the week closes.
    **Combined targets**: the combined target heads a group, at its own place in the order, with its sources indented
    under it, all in a lightly tinted panel (on This week and in Settings; prototyped as panel vs left rail, panel
    chosen 19 Nov 2026). The panel reaches into the card's padding, so the boxes keep their width and stay lined up
-   with the day headers. Its boxes are read-only and styled like the Star day row (grey when empty, soft green with a green tick when done),
+   with the day headers. Its boxes are read-only (grey when empty, soft green with a green tick when done),
    so they don't look like entry boxes;
    when it's met, its sources' filled boxes show ★ too. Sources show their weekly total and no N/goal pill. In
    Settings the group moves as one block (only the combined target has ↑↓).
-   Order: the table first (with a Star day row at the bottom), then the week score, the weigh-in, then Streaks.
+   A target with no goal shows a muted "no goal" pill where the N/goal pill would be (sources in a group show none).
+   The weigh-in card is kept bare (20 Nov 2026): "Weigh-in · dd/mm" with a small Edit, the weight and its change, then
+   "to go" / goal weight over the progress bar. Weight-loss streak and lowest weight live in History's achievements.
+   Order: the table first (star days marked ★ in the day headers), then the week score, the weigh-in, then Streaks.
 2. **History** (weight first): current weight, change since the first weigh-in and progress to goal, above the
    weight chart. Then **one month at a time** (‹ month › switcher): a one-line month summary (weight change, score,
    star days) and that month's weeks in the paper layout: one row per week (Monday date, weigh-in in bold + change),
@@ -90,7 +94,7 @@ The current week's score and streaks are "in progress" until the week closes.
    week to open it. Then a **year summary** (per month: weight at month end, change, average score). An
    **Achievements** section (record tiles + each target's current/best streak and totals) below. *(Revised 16 Nov 2026: month switcher instead of one long list of weeks.)*
 3. **How it works** (`/help`): five short sections (ticking, Monday weigh-in and why, scores and rewards,
-   History, Settings). Linked from a ? in the This week header, "Why Monday?" on the weigh-in card, and a
+   History, Settings). Linked from a ? in the This week header and a
    "New here?" notice until the first weigh-in.
 4. **Settings**: targets (add/edit/reorder/retire, kind, unit, N/7), goal weight, the corrections switch, and
    **Export**: CSV (one row per day: date, weigh-in in kg and st/lb, a column per target) and JSON (everything,

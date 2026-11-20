@@ -6,21 +6,25 @@ export function stLbToKg(st, lb = 0) {
   return (Number(st) * LB_PER_ST + Number(lb)) * KG_PER_LB;
 }
 
-/** kg → { st, lb } with lb rounded to 0.1 (carrying 14.0 lb into the next stone). */
+/** Whole pounds: weights are shown and entered to the nearest lb (stored kg keeps whatever was saved). */
+export const lbOf = (kg) => Math.round(kg / KG_PER_LB);
+
+/** a − b in kg, worked out on the rounded pounds, so a change always matches the two weights shown. */
+export const diffKg = (a, b) => (lbOf(a) - lbOf(b)) * KG_PER_LB;
+
+/** kg → { st, lb } with whole lb. */
 export function kgToStLb(kg) {
-  const totalLb = Math.round((kg / KG_PER_LB) * 10) / 10;
-  const neg = totalLb < 0;
+  const totalLb = lbOf(kg);
   const abs = Math.abs(totalLb);
-  let st = Math.floor(abs / LB_PER_ST);
-  let lb = Math.round((abs - st * LB_PER_ST) * 10) / 10;
-  if (lb >= LB_PER_ST) { st += 1; lb = 0; }
-  return { st: neg ? -st : st, lb: neg ? -lb : lb };
+  const st = Math.floor(abs / LB_PER_ST);
+  const lb = abs - st * LB_PER_ST;
+  return totalLb < 0 ? { st: -st, lb: -lb } : { st, lb };
 }
 
-/** '14 st 3.4 lb', '3.4 lb', '1 st 2 lb' (drops a trailing .0). */
+/** '14 st 3 lb', '3 lb'. */
 export function formatStLb(kg) {
   const { st, lb } = kgToStLb(Math.abs(kg));
-  const lbStr = `${Number.isInteger(lb) ? lb : lb.toFixed(1)} lb`;
+  const lbStr = `${lb} lb`;
   const s = st ? `${st} st ${lbStr}` : lbStr;
   return kg < 0 ? `-${s}` : s;
 }

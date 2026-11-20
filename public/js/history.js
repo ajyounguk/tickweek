@@ -1,4 +1,4 @@
-import { api, toast, h, fmtNum, formatStLb } from '/js/common.js';
+import { api, toast, h, fmtNum, formatStLb, diffKg } from '/js/common.js';
 import { KG_PER_LB } from '/js/weight.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,7 +32,7 @@ function renderRecords() {
   let drop = null;
   data.weighIns.forEach((w, i) => {
     const prev = data.weighIns[i - 1];
-    if (prev && addDays(prev.monday_date, 7) === w.monday_date && prev.kg - w.kg > (drop?.kg ?? 0.02)) drop = { kg: prev.kg - w.kg, monday: w.monday_date };
+    if (prev && addDays(prev.monday_date, 7) === w.monday_date && diffKg(prev.kg, w.kg) > (drop?.kg ?? 0.02)) drop = { kg: diffKg(prev.kg, w.kg), monday: w.monday_date };
   });
   $('achperiod').textContent = r.weeksTracked ? `all time · since ${ddmm(data.weeks.at(-1).monday)}` : '';
   $('records').replaceChildren(
@@ -41,7 +41,7 @@ function renderRecords() {
       twoWeighIns ? `best ${plural(data.losing.longest, 'week')}` : 'needs 2 weigh-ins'),
     tile('Biggest weekly drop', drop ? `▼ ${formatStLb(drop.kg)}` : null, drop ? `w/c ${ddmm(drop.monday)}` : 'needs 2 weigh-ins in a row'),
     tile('Perfect weeks 🏆', String(r.cleanSweeps), 'every target hit its goal'),
-    tile('Star days', `${r.fullDays}/${starDayCount()}`, 'every daily target done'),
+    tile('Star days', `${r.fullDays}/${starDayCount()}`, 'every goal done that day'),
     tile('Total weeks tracked', String(r.weeksTracked), r.weeksTracked ? 'including this week' : null),
   );
 }
@@ -92,7 +92,7 @@ const lastWeighInBefore = (iso) => [...data.weighIns].reverse().find((w) => w.mo
 function periodStats(inPeriod, startIso) {
   const ws = data.weighIns.filter((w) => inPeriod(w.monday_date));
   const base = lastWeighInBefore(startIso) ?? ws[0];
-  const change = ws.length && base && base !== ws.at(-1) ? ws.at(-1).kg - base.kg : null;
+  const change = ws.length && base && base !== ws.at(-1) ? diffKg(ws.at(-1).kg, base.kg) : null;
   const closed = data.weeks.filter((w) => inPeriod(w.monday) && !w.current && w.score != null);
   const score = closed.length ? Math.round(closed.reduce((a, w) => a + w.score, 0) / closed.length) : null;
   const fullDays = data.weeks.flatMap((w) => w.fullDays).filter(inPeriod).length;
@@ -100,10 +100,10 @@ function periodStats(inPeriod, startIso) {
   return { endKg: ws.at(-1)?.kg ?? null, change, score, fullDays, starDayOf };
 }
 
-/** Days that could have been a star day: tracked weeks with a 7/7 target, up to today. */
+/** Days that could have been a star day: tracked weeks with a target that has a goal, up to today. */
 function starDayCount(inPeriod = () => true) {
   return data.weeks
-    .filter((w) => w.targets.some((t) => t.goal_days === 7))
+    .filter((w) => w.targets.some((t) => t.goal_days != null))
     .flatMap((w) => w.days)
     .filter((d) => d <= data.today && inPeriod(d)).length;
 }
@@ -113,7 +113,7 @@ function renderHero() {
   const pts = data.weighIns;
   if (!pts.length) return $('hero').replaceChildren();
   const latest = pts.at(-1), first = pts[0];
-  const lost = latest.kg - first.kg;
+  const lost = diffKg(latest.kg, first.kg);
   const kids = [h('div', { class: 'hero' },
     h('div', {},
       h('div', { class: 'hero-label' }, 'Current weight'),
@@ -125,7 +125,7 @@ function renderHero() {
       h('span', {}, lost < 0 ? 'lost' : lost > 0 ? 'gained' : 'no change')) : null,
   )];
   if (data.goalKg != null) {
-    const toGo = Math.max(0, latest.kg - data.goalKg);
+    const toGo = Math.max(0, diffKg(latest.kg, data.goalKg));
     const span = first.kg - data.goalKg;
     const pct = span > 0 ? Math.min(100, Math.max(0, ((first.kg - latest.kg) / span) * 100)) : toGo === 0 ? 100 : 0;
     kids.push(h('div', { style: 'margin:10px 0 4px' },
@@ -176,7 +176,7 @@ function renderMonth() {
     });
     const wi = w.weighIn;
     const prev = wi ? weighMap.get(addDays(w.monday, -7)) : null;
-    const diff = wi && prev ? wi.kg - prev.kg : null;
+    const diff = wi && prev ? diffKg(wi.kg, prev.kg) : null;
     return h('a', { class: 'wrow', href: w.current ? '/' : `/?week=${w.monday}` },
       h('div', { class: 'wdate' },
         h('span', {}, w.ddmm),
@@ -299,7 +299,7 @@ function renderChart() {
     const cx = x(p.monday_date), cy = y(lbs[i]);
     cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
     ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('visibility', 'visible');
-    const diff = prev && dayNum(p.monday_date) - dayNum(prev.monday_date) === 7 ? p.kg - prev.kg : null;
+    const diff = prev && dayNum(p.monday_date) - dayNum(prev.monday_date) === 7 ? diffKg(p.kg, prev.kg) : null;
     tip.replaceChildren(
       h('b', {}, formatStLb(p.kg)),
       h('span', {}, `w/c ${ddmm(p.monday_date)}${p.late ? ' · late' : ''}`),

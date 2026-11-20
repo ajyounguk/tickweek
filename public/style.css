@@ -80,7 +80,9 @@ button, input, select { font: inherit; color: inherit; }
 .pill.warn { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
 
 .score { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.score .big { font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.score .big { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--accent); }
+.score.warn .big { color: var(--warn); }
+.bar.warn > i { background: var(--warn); }
 
 /* ---------- the grid ---------- */
 .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
@@ -104,7 +106,7 @@ button, input, select { font: inherit; color: inherit; }
 .cell.done:disabled { background-image: none; opacity: .75; }
 .cell.future { border-style: dashed; opacity: .5; }
 .cell svg { width: 22px; height: 22px; }
-/* A combined target's boxes fill themselves, so they look like the Star day row, not like buttons:
+/* A combined target's boxes fill themselves, so they look read-only, not like buttons:
    grey when empty, soft green with a green tick (or star) when done. */
 .cell.auto { cursor: default; border-color: transparent; background: var(--surface-2); color: var(--accent); }
 .cell.auto:active { transform: none; }
@@ -228,13 +230,11 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .streak { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .streak.on { color: var(--accent); font-weight: 600; }
 .dayhead { position: relative; }
-.dayhead .scale { font-size: 11px; color: var(--muted); }
-.fullrow { padding-top: 12px; border-top: 1px dashed var(--line); }
-.fd { aspect-ratio: 1 / 1; border-radius: 10px; border: 1.5px solid transparent; background: var(--surface-2); display: grid; place-items: center; font-size: 22px; color: var(--accent); min-width: 0; }
-.fd.on { background: var(--accent-soft); }
-.fd.future { background: var(--locked); }
-.wstats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
-.wstats b { color: var(--text); font-weight: 600; }
+.dayhead .scale { font-size: 11px; color: var(--accent); }
+/* Star day: a ★ after the date in the day header. */
+.dayhead .dstar { display: inline-block; width: 12px; height: 12px; margin-left: 2px; vertical-align: -1px; color: var(--accent); }
+.dayhead .dstar svg { display: block; width: 100%; height: 100%; }
+.pill.nogoal { opacity: .7; }
 
 /* ---------- history: records ---------- */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { todayISO, mondayOf, addDays, weekDates, ddmm, isISODate, canEditDate, canEditWeighIn } from '../src/dates.js';
-import { stLbToKg, kgToStLb, formatStLb } from '../src/weight.js';
+import { stLbToKg, kgToStLb, formatStLb, diffKg } from '../src/weight.js';
 import { weekScore, isCleanSweep, goalProgress } from '../src/scoring.js';
 
 test('todayISO uses Europe/London, not UTC', () => {
@@ -45,13 +45,17 @@ test('edit window', () => {
 });
 
 test('stone/lb conversion round-trips to 0.1 lb', () => {
-  assert.deepEqual(kgToStLb(stLbToKg(14, 3.4)), { st: 14, lb: 3.4 });
+  assert.deepEqual(kgToStLb(stLbToKg(14, 3)), { st: 14, lb: 3 });
+  assert.deepEqual(kgToStLb(stLbToKg(14, 3.4)), { st: 14, lb: 3 }, 'whole lb');
   assert.deepEqual(kgToStLb(stLbToKg(12, 0)), { st: 12, lb: 0 });
-  assert.deepEqual(kgToStLb(stLbToKg(11, 13.96)), { st: 12, lb: 0 }, 'carries 14.0 lb');
-  assert.equal(formatStLb(stLbToKg(14, 3.4)), '14 st 3.4 lb');
+  assert.deepEqual(kgToStLb(stLbToKg(11, 13.6)), { st: 12, lb: 0 }, 'carries 14 lb');
+  assert.equal(formatStLb(stLbToKg(14, 3)), '14 st 3 lb');
   assert.equal(formatStLb(stLbToKg(1, 2)), '1 st 2 lb');
-  assert.equal(formatStLb(stLbToKg(0, 1.5)), '1.5 lb');
+  assert.equal(formatStLb(stLbToKg(0, 1.5)), '2 lb');
   assert.equal(formatStLb(-stLbToKg(0, 2)), '-2 lb');
+  // a change matches the weights shown: 14 st 13.6 (shown 15 st 0) → 14 st 13.2 (shown 14 st 13) is 1 lb down
+  assert.equal(formatStLb(diffKg(stLbToKg(14, 13.6), stLbToKg(14, 13.2))), '1 lb');
+  assert.equal(diffKg(stLbToKg(14, 3.2), stLbToKg(14, 3.4)), 0, 'same whole lb → no change');
   assert.ok(Math.abs(stLbToKg(14, 0) - 88.904) < 0.001);
 });
 
