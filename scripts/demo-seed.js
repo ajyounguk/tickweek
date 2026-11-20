@@ -45,7 +45,6 @@ db.transaction(() => {
         if (perfect ? perfectDays.includes(i) : roll < p) repo.setEntry(date, t.id, t.kind === 'tick' ? 1 : t.unit === 'miles' ? Math.round((2 + rand() * 3) * 10) / 10 : 30 + Math.round(rand() * 4) * 10);
       }
     }
-    if (w === 7) continue; // a missed weigh-in, to show the gap
     kg += -0.9 + rand() * 1.1 - (w === 0 ? 0.4 : 0);
     repo.setWeighIn(monday, Math.round(kg * 10) / 10, rand() < 0.15 && w !== 0 ? addDays(monday, 2) : monday);
   }
