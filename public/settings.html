@@ -39,13 +39,20 @@
     <button class="btn" id="addopen" type="button">+ Add target</button>
     <form class="form addform hidden" id="addform" autocomplete="off">
       <label><span>Name</span><input type="text" name="name" maxlength="40" required placeholder="e.g. 10k steps"></label>
-      <label><span>Kind</span>
-        <select name="kind">
-          <option value="tick">Tick: done or not</option>
-          <option value="number">Number: miles, min…</option>
-          <option value="combined">Combined: any of others</option>
+      <div>
+        <div class="labelrow"><label for="addkind">Kind</label>
+          <button type="button" class="helpq" id="kindhelpbtn" aria-expanded="false" aria-controls="kindhelp" aria-label="What do the kinds mean?">?</button></div>
+        <select name="kind" id="addkind">
+          <option value="tick">Tick</option>
+          <option value="number">Value</option>
+          <option value="combined">Combined target</option>
         </select>
-      </label>
+        <ul class="kindhelp hidden" id="kindhelp">
+          <li><b>Tick</b>: done or not, e.g. No snacks</li>
+          <li><b>Value</b>: a number with a unit, e.g. miles run</li>
+          <li><b>Combined target</b>: done when any of its targets is, e.g. Exercise = run or weights</li>
+        </ul>
+      </div>
       <div class="two">
         <label class="unitfield hidden"><span>Unit</span><input type="text" name="unit" maxlength="12" placeholder="miles, min…"></label>
         <label><span>Goal</span><select name="goal_days"></select></label>

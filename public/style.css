@@ -85,7 +85,7 @@ button, input, select { font: inherit; color: inherit; }
 .bar.warn > i { background: var(--warn); }
 
 /* ---------- the grid ---------- */
-.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; isolation: isolate; }
 .dayhead { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0; border-radius: 8px; }
 .dayhead b { display: block; font-size: 13px; color: var(--text); }
 .dayhead.today { background: var(--today); }
@@ -121,13 +121,17 @@ button, input, select { font: inherit; color: inherit; }
 .target.src .name { padding-left: 14px; font-weight: 500; }
 
 /* Stars for met rows: every filled box shows ★ once the row reaches its goal. */
-.cell .g { display: grid; place-items: center; line-height: 1; }
-.cell .g.star svg { width: 30px; height: 30px; }
-.cell.num .g.star svg { width: 24px; height: 24px; }
-.cell .g.star small { font-size: 10px; font-weight: 700; margin-top: -1px; }
+.cell { position: relative; }
+/* The glyph layer covers the whole box, so a tick or star sits in the same place in every box. */
+.cell .g { display: grid; place-items: center; line-height: 1; position: absolute; inset: 0; }
+/* Ticks and stars are the same size, so a done box looks as strong as a met one. */
+.cell .g svg { width: 30px; height: 30px; }
+.cell.num .g svg { margin-top: -12px; } /* leaves room for the value underneath */
+/* Number boxes: the tick or star sits exactly where it does in a tick box; the value is pinned small at the bottom. */
+.cell .g small { position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; font-size: 10px; font-weight: 700; line-height: 1; }
 /* Crossing tap: old glyph out, new glyph in, layered; --i staggers the cascade. */
 .cell.glow { animation: cellglow .5s ease-out both; animation-delay: calc(var(--i) * 70ms); }
-.cell.morph > span { grid-area: 1 / 1; display: grid; place-items: center; }
+.cell.morph > span { position: absolute; inset: 0; }
 .cell.morph > .out { animation: glyphout .15s ease-in both; animation-delay: calc(var(--i) * 70ms); }
 .cell.morph > .in { animation: glyphin .3s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--i) * 70ms + 90ms); }
 @keyframes glyphout { to { transform: scale(0) rotate(90deg); opacity: 0; } }
@@ -136,8 +140,21 @@ button, input, select { font: inherit; color: inherit; }
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
   100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
 }
+/* Chain: a done box joins the next day's when that's done too (the bar sits behind the boxes, in the gap). */
+.cell.link::after { content: ""; position: absolute; left: 100%; top: 50%; width: 9px; height: 8px; margin: -4px 0 0 -2px;
+  background: var(--accent); border-radius: 2px; z-index: -1; transform-origin: left; }
+.cell.linkin::after { animation: linkgrow .26s .18s ease-out both; }
+@keyframes linkgrow { from { transform: scaleX(0); } }
+/* Fill-up: the box just ticked fills with green from the bottom, then its tick pops in. */
+.cell.done.fillin { background-image: linear-gradient(var(--accent), var(--accent)); background-repeat: no-repeat; background-position: bottom;
+  animation: fillup .34s cubic-bezier(.3, .7, .3, 1) both; }
+.cell.done.fillin.glow { animation: fillup .34s cubic-bezier(.3, .7, .3, 1) both, cellglow .5s ease-out both; animation-delay: 0s, calc(var(--i) * 70ms); }
+.cell.fillin:not(.morph) .g { animation: gpop .3s .24s cubic-bezier(.34, 1.56, .64, 1) both; }
+@keyframes fillup { from { background-color: var(--surface); background-size: 100% 0%; } to { background-color: var(--surface); background-size: 100% 100%; } }
+@keyframes gpop { from { transform: scale(0); } }
 @media (prefers-reduced-motion: reduce) {
   .cell.glow { animation: none; }
+  .cell.done.fillin, .cell.done.fillin.glow, .cell.fillin .g, .cell.linkin::after { animation: none; }
   .cell.morph > .out { animation: fade .15s ease both reverse; }
   .cell.morph > .in { animation: fade .15s ease both; }
 }
@@ -200,6 +217,13 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .edithead { display: flex; align-items: center; gap: 8px; }
 .pill.kind.combined { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 #addopen { margin-top: 10px; }
+.labelrow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.labelrow label { font-size: 13px; color: var(--muted); }
+.helpq { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--muted);
+  font-size: 12px; font-weight: 700; line-height: 1; padding: 0; cursor: pointer; }
+.helpq[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.kindhelp { margin: 8px 0 0; padding: 8px 12px 8px 26px; border-radius: 10px; background: var(--surface-2); font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.kindhelp b { color: var(--text); font-weight: 600; }
 .addform { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .form .checks input { width: 18px; height: 18px; accent-color: var(--accent); }
 .tlist li.src { padding-left: 14px; }
@@ -321,3 +345,4 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
   box-shadow: var(--shadow); border-radius: 8px; padding: 6px 9px; font-size: 12px; white-space: nowrap; }
 .chart .tip b { display: block; font-size: 15px; }
 .chart .tip span { display: block; color: var(--muted); }
+.scoresub { font-size: 14px; font-weight: 600; color: var(--accent); margin: -2px 0 8px; }

@@ -4,6 +4,25 @@ import { grouped } from '/js/combined.js';
 const $ = (id) => document.getElementById(id);
 let targets = [];
 let editingId = null;
+/** Unsaved edits to a combined target: the list previews its sources as they're ticked. */
+let draft = null;
+function startEdit(t) {
+  editingId = t?.id ?? null;
+  draft = null;
+  if (t?.kind === 'combined') {
+    const sources = sourcesOf(t).map((s) => s.id);
+    const pool = targets.filter((x) => !x.archived_at && x.kind !== 'combined');
+    draft = { name: t.name, goal: t.goal_days, sources,
+      order: [...pool.filter((x) => sources.includes(x.id)), ...pool.filter((x) => !sources.includes(x.id))].map((x) => x.id) };
+  }
+  renderTargets();
+}
+/** A target as the list should show it, with the draft's sources moved under the combined target being edited. */
+const preview = (t) => {
+  if (!draft) return t;
+  const part_of = draft.sources.includes(t.id) ? editingId : t.part_of === editingId ? null : t.part_of;
+  return part_of === t.part_of ? t : { ...t, part_of };
+};
 
 /** Goal choices; `none` adds "No goal" (logged, not scored). Value '' means no goal. */
 const goalOptions = (sel, none) => [
@@ -13,22 +32,25 @@ const goalOptions = (sel, none) => [
 const byId = (id) => targets.find((t) => t.id === id);
 const sourcesOf = (t) => targets.filter((s) => s.part_of === t.id && !s.archived_at);
 /** Label over a combined target's checkboxes. */
-const SOURCES_LABEL = 'Made up of';
-const kindLabel = (t) => (t.kind === 'tick' ? 'Tick' : t.kind === 'number' ? `Number${t.unit ? ` (${t.unit})` : ''}` : 'Combined');
+const SOURCES_LABEL = 'Made up of these targets:';
+const kindLabel = (t) => (t.kind === 'tick' ? 'Tick' : t.kind === 'number' ? `Value${t.unit ? ` (${t.unit})` : ''}` : 'Combined target');
 function describe(t) {
   const goal = t.goal_days != null ? `${t.goal_days}/7` : t.part_of && byId(t.part_of) ? `in ${byId(t.part_of).name}` : 'no goal';
   const from = t.kind === 'combined' && !sourcesOf(t).length ? ' · counts nothing yet' : '';
   return `${kindLabel(t)}${from} · ${goal}`;
 }
-/** Checkboxes for a combined target's sources: every active tick/number target, one per line, picked ones first. */
-function sourceChecks(selfId, picked) {
+/** Checkboxes for a combined target's sources: every active tick/number target, one per line, picked ones first
+ *  (or in `order`, kept fixed while editing so boxes don't jump). `onchange` gets the ticked ids. */
+function sourceChecks(selfId, picked, order, onchange) {
   const pool = targets.filter((t) => !t.archived_at && t.kind !== 'combined');
-  const sorted = [...pool.filter((t) => picked.includes(t.id)), ...pool.filter((t) => !picked.includes(t.id))];
-  return h('div', { class: 'checks' }, sorted.map((t) =>
+  const sorted = order ? order.map(byId).filter((t) => pool.includes(t))
+    : [...pool.filter((t) => picked.includes(t.id)), ...pool.filter((t) => !picked.includes(t.id))];
+  const box = h('div', { class: 'checks' }, sorted.map((t) =>
     h('label', { class: 'chk' },
-      h('input', { type: 'checkbox', value: t.id, checked: picked.includes(t.id) }),
+      h('input', { type: 'checkbox', value: t.id, checked: picked.includes(t.id), onchange: onchange && (() => onchange(checkedIds(box))) }),
       t.name,
       t.part_of && t.part_of !== selfId && byId(t.part_of) ? h('span', { class: 'muted small' }, ` (in ${byId(t.part_of).name})`) : null)));
+  return box;
 }
 const checkedIds = (box) => [...box.querySelectorAll('input:checked')].map((i) => Number(i.value));
 
@@ -39,7 +61,7 @@ async function loadTargets() {
 }
 
 function renderTargets() {
-  const active = grouped(targets.filter((t) => !t.archived_at));
+  const active = grouped(targets.filter((t) => !t.archived_at).map(preview));
   const archived = targets.filter((t) => t.archived_at);
   // Reorder moves blocks: a combined target moves together with its sources.
   // grouped() puts sources straight after their combined target, so they join its block.
@@ -76,22 +98,23 @@ function viewRow(t, bi, blocks) {
     h('div', { class: 'info' }, h('div', {}, t.name), h('div', { class: 'meta' }, describe(t))),
     src ? null : h('button', { class: 'iconbtn', disabled: bi === 0, 'aria-label': `Move ${t.name} up`, onclick: () => move(-1) }, '↑'),
     src ? null : h('button', { class: 'iconbtn', disabled: bi === blocks.length - 1, 'aria-label': `Move ${t.name} down`, onclick: () => move(1) }, '↓'),
-    h('button', { class: 'btn link', onclick: () => { editingId = t.id; renderTargets(); } }, 'Edit'),
+    h('button', { class: 'btn link', onclick: () => startEdit(t) }, 'Edit'),
   );
 }
 
 function editRow(t) {
   const combined = t.kind === 'combined';
   const src = !!(t.part_of && byId(t.part_of));
-  const name = h('input', { type: 'text', value: t.name, maxlength: 40, 'aria-label': 'Name' });
+  const name = h('input', { type: 'text', value: draft?.name ?? t.name, maxlength: 40, 'aria-label': 'Name', oninput: () => { if (draft) draft.name = name.value; } });
   const unit = t.kind === 'number' ? h('input', { type: 'text', value: t.unit ?? '', maxlength: 12, 'aria-label': 'Unit', placeholder: 'unit' }) : null;
-  const goal = src ? null : h('select', { 'aria-label': 'Goal' }, goalOptions(t.goal_days, !combined));
-  const checks = combined ? sourceChecks(t.id, sourcesOf(t).map((s) => s.id)) : null;
+  const goal = src ? null : h('select', { 'aria-label': 'Goal', onchange: () => { if (draft) draft.goal = Number(goal.value); } },
+    goalOptions(draft ? draft.goal : t.goal_days, !combined));
+  const checks = combined ? sourceChecks(t.id, draft.sources, draft.order, (ids) => { draft.sources = ids; renderTargets(); }) : null;
   const save = () => {
     const body = { name: name.value, unit: unit?.value };
     if (goal) body.goal_days = goal.value === '' ? null : Number(goal.value);
     if (checks) body.sources = checkedIds(checks);
-    act(`/api/targets/${t.id}`, 'PATCH', body, 'Saved, from this week on').then((ok) => { if (ok) editingId = null; renderTargets(); });
+    act(`/api/targets/${t.id}`, 'PATCH', body, 'Saved, from this week on').then((ok) => { if (ok) startEdit(null); else renderTargets(); });
   };
   const freed = combined ? sourcesOf(t).map((s) => s.name) : [];
   const retireMsg = `Retire “${t.name}”? It disappears from this week on; its history stays.`
@@ -108,11 +131,11 @@ function editRow(t) {
       checks ? h('div', {}, h('span', { class: 'small muted srclabel' }, SOURCES_LABEL), checks) : null,
       h('div', { class: 'row' },
         h('button', { class: 'btn primary', onclick: save }, 'Save'),
-        h('button', { class: 'btn link', onclick: () => { editingId = null; renderTargets(); } }, 'Cancel'),
+        h('button', { class: 'btn link', onclick: () => startEdit(null) }, 'Cancel'),
         h('button', {
           class: 'btn link danger', style: 'margin-left:auto',
           onclick: () => confirm(retireMsg)
-            && act(`/api/targets/${t.id}/archive`, 'POST', null, 'Retired').then((ok) => { if (ok) { editingId = null; renderTargets(); } }),
+            && act(`/api/targets/${t.id}/archive`, 'POST', null, 'Retired').then((ok) => { if (ok) startEdit(null); }),
         }, 'Retire'),
       ),
     ),
@@ -144,6 +167,10 @@ function syncKind() {
   F.goal_days.replaceChildren(...goalOptions(k === 'combined' ? sel ?? 4 : sel, k !== 'combined').filter(Boolean));
 }
 form.querySelector('.srclabel').textContent = SOURCES_LABEL;
+$('kindhelpbtn').addEventListener('click', (e) => {
+  const open = $('kindhelp').classList.toggle('hidden') === false;
+  e.currentTarget.setAttribute('aria-expanded', open);
+});
 const openAdd = (open) => { form.classList.toggle('hidden', !open); $('addopen').classList.toggle('hidden', open); if (open) F.name.focus(); };
 function closeAdd() { form.reset(); syncKind(); openAdd(false); }
 $('addopen').addEventListener('click', () => openAdd(true));

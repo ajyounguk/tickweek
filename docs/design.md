@@ -59,6 +59,7 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
 | **Week score %** | Σ min(days done, goal) ÷ Σ goals, over that week's targets with a goal. Going over a goal doesn't add points. Shown on History; This week shows a word instead |
 | **Week word** | This week, on pace (done vs goal × finished days ÷ 7): Fresh week / Started (Monday), Catch-up time (< 85%), On track, Great (≥ 120%). Past weeks: Great week (≥ 80%), Good week (≥ 60%), Tough week. Perfect week 🏆 when every goal is met. The bar under it shows the score with no number; amber for Catch-up / Tough (20 Nov 2026) |
 | **Perfect week** 🏆 | Every target reached its N/7 goal that week (was "clean sweep") |
+| **Above and beyond** 🏆 | Every goal met *and* at least one target past its goal (20 Nov 2026). Replaces "Perfect week" as the week in a word, with "+N bonus days" under it (N = days past each goal, added up). History's 🏆 unchanged |
 | **Star day** ★ | Every target with a goal done that day, N/7 and combined targets included (was: every 7/7 target; changed 20 Nov 2026). Shown as a ★ after the date in the day header |
 | **Target streak** | 7/7 targets: consecutive days done. N/7 targets: consecutive weeks where the goal was met |
 | **Weight-loss streak** | Consecutive weekly weigh-ins, each lower than the one before. Same weight = neither extends nor breaks it; a missing week breaks it |
@@ -73,16 +74,19 @@ The current week's score and streaks are "in progress" until the week closes.
    N/7 progress per target and the weigh-in box, then a compact **Streaks** card ("15 days in a row"); the full
    streak detail lives on History under Achievements.
    **Stars for met rows**: once a target reaches its goal for the week, every filled box in that row shows ★ instead
-   of a tick (number boxes: ★ with the value small underneath); extra days past the goal go in as ★, and the row goes
+   of a tick (number boxes show a tick with the value small underneath, and ★ with the value once met); extra days past the goal go in as ★, and the row goes
    back to ticks if it drops below the goal. Only the tap that crosses the goal animates (a left-to-right cascade of
    ticks spinning into stars with a brief glow; back to ticks right-to-left without the glow; a crossfade under
    reduced motion). Page loads and past weeks show the stars statically. Same green box, no new colours. History
    month dots are unchanged.
+   **Fill-up + Chain** (20 Nov 2026, picked from seven rendered tick styles): the box you tick fills with green from
+   the bottom, then its tick pops in (only that box; page loads stay still). Done boxes on consecutive days are joined
+   by a short green bar, so a run reads as one chain. Reduced motion: no fill or grow, just the end state.
    **Combined targets**: the combined target heads a group, at its own place in the order, with its sources indented
    under it, all in a lightly tinted panel (on This week and in Settings; prototyped as panel vs left rail, panel
    chosen 19 Nov 2026). The panel reaches into the card's padding, so the boxes keep their width and stay lined up
-   with the day headers. Its boxes are read-only (grey when empty, soft green with a green tick when done),
-   so they don't look like entry boxes;
+   with the day headers. It has no boxes (20 Nov 2026: its N/goal pill
+   already says the progress): just its name, a "combined target" pill (styled like the N/goal pill) and its N/goal pill, heading the group;
    when it's met, its sources' filled boxes show ★ too. Sources show their weekly total and no N/goal pill. In
    Settings the group moves as one block (only the combined target has ↑↓).
    A target with no goal shows a muted "no goal" pill where the N/goal pill would be (sources in a group show none).
@@ -103,7 +107,7 @@ The current week's score and streaks are "in progress" until the week closes.
    lossless). *(Added 16 Nov 2026.)*
    Order (20 Nov 2026): Goal weight, Targets (with "+ Add target" opening the form in place), Retired, Export,
    Corrections last. Editing shows the kind as a pill at the top (Combined in green); a combined target's sources are
-   picked under **"Made up of"**, one per line, ticked ones first. The Kind dropdown says what each kind is.
+   picked under **"Made up of these targets:"**, one per line, ticked ones first. Kinds are named Tick, Value (a number with a unit) and Combined target; a **?** next to Kind opens a three-line explanation with an example each (hover tooltips don't work on phones).
 
 ## Edit window
 
