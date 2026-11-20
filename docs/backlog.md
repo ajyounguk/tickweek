@@ -14,4 +14,8 @@ on the home server, 16 Nov).
 - **Parked (16 Nov): per-week goals.** Ideas: edit goals on the week itself (carry forward from the previous week),
   fix a past week's goals in corrections mode, or a one-off week. Today Settings changes apply from this week on and
   past weeks keep theirs. Revisit only if that proves limiting.
+- **Parked (20 Nov): a more useful progress card.** The card stays "word + bar" (with Above and beyond / bonus days)
+  for now. Five designs were mocked up: to-go chips per target, a pace marker on the bar, per-target mini bars,
+  "next best tick" (the one thing to do today, warns when a goal needs every remaining day or is out of reach) and
+  you-vs-last-week with day dots. Favourite: next best tick with the to-go chips under it.
 - Confirm tickweek.com / tickweek.app availability (registrar search) if a domain is ever wanted.

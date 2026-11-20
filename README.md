@@ -33,7 +33,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/this-week-dark.png">
-  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks and numbers, an Exercise row that fills itself from Running and Weight training, and star days marked in the day headers">
+  <img src="docs/screenshots/this-week-light.png" width="280" alt="This week: a Mon–Sun table of targets with ticks (runs of days joined into a chain), Exercise as a combined target over Running and Weight training, and star days marked in the day headers">
 </picture>
 
 </td>
@@ -43,7 +43,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 **Your daily check-in.** Open it once a day, ideally in the evening, and tick what you did.
 
-- Tap a box to tick a target. Number targets (running, weights) ask for the miles or minutes.
+- Tap a box to tick a target. Value targets (running, weights) ask for the miles or minutes.
 - Missed a day? Fill it in any time this week. Last week stays open until you weigh in.
 - A ★ appears next to the date on a **star day**: every target with a goal done that day.
 - Underneath: how the week's going in a word (On track, Great, Catch-up time…), the Monday weigh-in and the streaks you're keeping alive.
@@ -108,7 +108,7 @@ Tickweek is built around a few simple ideas for closing that gap:
 
 **Make it yours.** Set it up once, adjust as you go.
 
-- Add your targets: a simple tick, or a number with a unit. Say how many days a week each one asks for.
+- Add your targets: a simple tick, or a value with a unit. Say how many days a week each one asks for.
 - Combine targets: Exercise 4 days a week, done by either a run or a weights session.
 - Rename, reorder or retire them at any time. Changes apply from this week on; past weeks keep their scores.
   A retired target can also be deleted for good.
@@ -139,7 +139,7 @@ docker run -d --name tickweek \
   -p 3000:3000 \
   -v /path/to/tickweek-data:/data \
   -e TZ=Europe/London \
-  ghcr.io/ajyounguk/tickweek:0.8.0
+  ghcr.io/ajyounguk/tickweek:0.9.0
 ```
 
 Then open `http://<your-server>:3000`, and on your phone use **Add to Home Screen**. Pin a version tag as above and
@@ -164,6 +164,30 @@ npm run demo       # try it with ~12 weeks of made-up data (./demo-data, git-ign
 
 Env: `PORT` (3000), `DATA_DIR` (`./data`; `/data` in the container), `APP_TZ` (`Europe/London`).
 Dev/demo only: `TICKWEEK_NOW` pins the clock (e.g. `2026-11-19T19:30:00Z`) for screenshots; leave it unset.
+
+### Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser["Browser (phone or desktop)"]
+    UI["Pages: This week, History,<br/>Settings, How it works<br/>(plain HTML/CSS/JS)"]
+  end
+  subgraph Container["Docker container (Node)"]
+    API["Express app<br/>JSON API + static files"]
+    Domain["Domain logic<br/>dates, weight, scoring,<br/>combined targets, stats"]
+    DB["db.js<br/>schema + queries"]
+  end
+  File[("SQLite file<br/>/data/tickweek.db")]
+  UI -- "fetch /api/*" --> API
+  API --> Domain
+  API --> DB
+  DB --> File
+  Domain -. "weight.js, combined.js<br/>also served to the browser" .-> UI
+  subgraph Release["Release"]
+    GH["GitHub: tests on push,<br/>image on a version tag"] --> GHCR["GHCR image<br/>(pinned tag)"]
+  end
+  GHCR -. "pulled by" .-> Container
+```
 
 | Path | What |
 |---|---|

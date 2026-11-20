@@ -81,7 +81,11 @@ function renderNotices() {
  * `warn` turns the word and bar amber.
  */
 function weekWord() {
-  if (data.cleanSweep) return { word: 'Perfect week 🏆' };
+  if (data.cleanSweep) {
+    // Past the goals too: every extra day beyond a goal counts as a bonus day.
+    const bonus = data.targets.filter((t) => t.goal_days != null).reduce((a, t) => a + Math.max(0, t.done - t.goal_days), 0);
+    return bonus ? { word: 'Above and beyond 🏆', sub: `+${bonus} bonus day${bonus === 1 ? '' : 's'}` } : { word: 'Perfect week 🏆' };
+  }
   if (!data.current) {
     const s = data.score;
     return s >= 80 ? { word: 'Great week' } : s >= 60 ? { word: 'Good week' } : { word: 'Tough week', warn: true };
@@ -100,11 +104,12 @@ function renderScore() {
     card.replaceChildren(h('div', { class: 'muted' }, 'No targets this week. ', h('a', { href: '/settings' }, 'Add some in Settings.')));
     return;
   }
-  const { word, warn } = weekWord();
+  const { word, warn, sub } = weekWord();
   card.replaceChildren(
     h('div', { class: 'score' + (warn ? ' warn' : '') },
       h('span', { class: 'big' }, word),
     ),
+    ...(sub ? [h('div', { class: 'scoresub' }, sub)] : []),
     h('div', { class: 'bar' + (warn ? ' warn' : '') }, h('i', { style: `width:${data.score}%` })),
   );
 }
@@ -225,7 +230,7 @@ function renderGrid(change) {
   card.replaceChildren(head, ...blocks);
 }
 
-/** One target's row: name, unit or weekly total, N/goal pill, and its seven boxes. */
+/** One target's row: name, unit or weekly total, N/goal pill, and its seven boxes (a combined target has none). */
 function targetRow(t, change) {
   const met = showsStars(t);
   // Cascade order over the filled boxes: left-to-right into stars, right-to-left back to ticks.
@@ -239,10 +244,13 @@ function targetRow(t, change) {
     h('div', { class: 'name' },
       t.name,
       t.kind === 'number' ? h('span', { class: 'unit' }, weekTotal(t) ? `${fmtNum(weekTotal(t))} ${t.unit ?? ''}` : t.unit ?? '') : null,
+      t.kind === 'combined' ? h('span', { class: 'pill' }, 'combined target') : null,
       t.goal_days != null ? h('span', { style: 'margin-left:auto', class: 'pill' + (met ? ' met' : '') }, `${t.done}/${t.goal_days}`)
         : parentOf(t) ? null : h('span', { style: 'margin-left:auto', class: 'pill nogoal' }, 'no goal'),
     ),
-    h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
+    // A combined target is just the group's heading: its N/goal pill says the progress, its sources hold the boxes.
+    t.kind === 'combined' ? null
+      : h('div', { class: 'grid' }, data.days.map((d) => cell(t, d, met, order?.has(d.date) ? { dir: change.dir, i: order.get(d.date) } : null))),
   );
 }
 
@@ -267,7 +275,8 @@ const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentCo
 
 /** What a filled box shows: tick or number, or ★ (with the number small underneath) once the row has met its goal. */
 function glyph(t, v, star) {
-  if (!star) return t.kind === 'number' ? h('span', { class: 'g' }, fmtNum(v)) : h('span', { class: 'g', html: TICK_SVG }); // combined draws as a tick
+  // Number boxes: the tick (or star) with the value small underneath.
+  if (!star) return h('span', { class: 'g tick', html: TICK_SVG }, t.kind === 'number' ? h('small', {}, fmtNum(v)) : null);
   return h('span', { class: 'g star', html: STAR_SVG }, t.kind === 'number' ? h('small', {}, fmtNum(v)) : null);
 }
 
@@ -278,9 +287,17 @@ function glyph(t, v, star) {
 function cell(t, d, met, anim) {
   const v = data.entries[t.id]?.[d.date] ?? 0;
   const done = v > 0;
+  // Chain: a done box links to the next day's when that's done too, so a run of days reads as one bar.
+  const i = data.days.indexOf(d);
+  const isDone = (day) => day && (data.entries[t.id]?.[day.date] ?? 0) > 0;
+  const link = done && isDone(data.days[i + 1]);
+  // The box just tapped fills up from the bottom; any link it makes grows in.
+  const fresh = justTicked?.id === t.id && justTicked.date === d.date;
+  const linkin = link && (fresh || (justTicked?.id === t.id && data.days[i + 1]?.date === justTicked.date));
   const auto = t.kind === 'combined';
   const cls = ['cell', done && 'done', t.kind === 'number' && 'num', d.isToday && 'today', d.future && 'future',
-    auto && 'auto', auto && !d.editable && 'locked', anim && 'morph', anim?.dir === 'in' && 'glow'].filter(Boolean).join(' ');
+    auto && 'auto', auto && !d.editable && 'locked', anim && 'morph', anim?.dir === 'in' && 'glow',
+    link && 'link', linkin && 'linkin', fresh && done && 'fillin'].filter(Boolean).join(' ');
   const what = auto
     ? (done ? `done (${sourcesOf(t).filter((s) => data.entries[s.id]?.[d.date] > 0).map((s) => s.name).join(', ')})` : 'not done')
     : done ? (t.kind === 'number' ? `${fmtNum(v)} ${t.unit ?? ''}` : 'done') : 'not done';
@@ -317,7 +334,9 @@ async function setEntry(t, date, value) {
     animUntil = Date.now() + 70 * 7 + 400; // stagger + morph + glow
   }
   renderScore();
+  if (value > 0 && !before) justTicked = { id: t.id, date };
   renderGrid(change);
+  justTicked = null;
   try {
     const r = await api('PUT', '/api/entry', { date, target_id: t.id, value });
     if (r.value > 0) map[date] = r.value; else delete map[date];
@@ -334,6 +353,8 @@ async function setEntry(t, date, value) {
 // Streaks and star days are computed server-side: re-fetch shortly after a burst of taps settles.
 // The refresh rebuilds the grid, so it waits for any star cascade to finish.
 let refreshT, animUntil = 0;
+/** The box just ticked ({ id, date }), set for one render so only it animates. */
+let justTicked = null;
 function refreshSoon() {
   clearTimeout(refreshT);
   refreshT = setTimeout(async () => {
