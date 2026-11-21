@@ -5,6 +5,8 @@ Open items, next first. Remove an item when it's done (log it in `changelogs/`).
 Build plan (agreed 16 Nov 2026): M0 scaffold ✅ → M1 first usable cut ✅ → M2 game layer + History ✅ → M3 polish ✅ → M4 ship ✅ (v0.3.0 deployed
 on the home server, 16 Nov).
 
+- **Ship "one thing edited at a time"** (branch `settings-edit-focus`, committed, not pushed): push and open the PR when
+  asked, then fold it into the next release (version bump, image tag).
 - **Click-through test locally** (`npm run demo` for a populated copy, `npm start` for a clean one,
   phone-width browser): ticks, number pad, weigh-in, History (chart hover), Settings. API/stats are covered by
   tests; the UI was screenshot-checked headless (light + dark, 360–390 px), not clicked through.
