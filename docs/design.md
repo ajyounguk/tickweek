@@ -37,6 +37,8 @@ Defaults: weeks start Monday, dates shown dd/mm, timezone Europe/London (`TZ` en
     counts when any of its sources has an entry; a run and weights on the same day = 1 day (counting sessions was
     considered and dropped). Not tappable, no unit, no nesting. Its sources have **no goal** while they count towards
     it: still logged, not scored. Retiring it leaves them with no goal until one is set.
+  - A target's kind is **fixed once created** (21 Nov 2026: a Tick ↔ Value switch was considered and dropped to keep
+    it simple). To change it, retire the target and add a new one.
 - **Days-per-week goal** per target (N/7, default 7), e.g. fast 7/7, no snacks 7/7, running 3/7, weights 2/7. Which
   days doesn't matter. A target can also have **no goal**: logged only, left out of scores, streaks and History dots.
 - **Changes apply from the current week on.** Each week keeps a snapshot of the targets and goals it had, so past scores
@@ -106,7 +108,10 @@ The current week's score and streaks are "in progress" until the week closes.
    **Export**: CSV (one row per day: date, weigh-in in kg and st/lb, a column per target) and JSON (everything,
    lossless). *(Added 16 Nov 2026.)*
    Order (20 Nov 2026): Goal weight, Targets (with "+ Add target" opening the form in place), Retired, Export,
-   Corrections last. Editing shows the kind as a pill at the top (Combined in green); a combined target's sources are
+   Corrections last. **One thing is edited at a time** (21 Nov 2026): a target being edited sits in a light green panel;
+   while a target is edited or added, everything else on the page (other targets, Add target, Retired, Export, Corrections, Goal
+   weight) fades back and can't be used until Save or Cancel. The edit box is headed by the target's name (following
+   the Name field as it's typed) with a green pill beside it: Tick target, Value target or Combined target; a combined target's sources are
    picked under **"Made up of these targets:"**, one per line, ticked ones first. Kinds are named Tick, Value (a number with a unit) and Combined target; a **?** next to Kind opens a three-line explanation with an example each (hover tooltips don't work on phones).
 
 ## Edit window
