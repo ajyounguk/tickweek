@@ -214,7 +214,8 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .form input, .form select { width: 100%; }
 .checks { display: grid; gap: 8px; margin-top: 6px; }
 .checks .chk { display: flex; align-items: center; gap: 8px; }
-.edithead { display: flex; align-items: center; gap: 8px; }
+.edithead { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.edittitle { font-weight: 600; overflow-wrap: anywhere; }
 .pill.kind.combined { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 #addopen { margin-top: 10px; }
 .labelrow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
@@ -234,6 +235,17 @@ dialog.pad::backdrop { background: rgba(0,0,0,.45); }
 .tlist li.grp-first.grp-last { border-radius: 12px; }
 .tlist li.grp + li:not(.grp) { border-top-color: transparent; margin-top: 6px; }
 .tlist li:not(.grp) + li.grp-first { border-top-color: transparent; margin-top: 6px; }
+/* The row being edited gets the same light green panel; inside a group it goes a shade deeper to stand out. */
+.tlist li.editing:not(.grp) { margin: 6px -8px; padding-left: 8px; padding-right: 8px; border-radius: 12px; border-top-color: transparent;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.tlist li.editing:not(.grp) + li { border-top-color: transparent; }
+.tlist li.grp.editing { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
+/* Everything but the thing being edited fades back; a row keeps its group's green, only its content fades. */
+.dim { opacity: .4; }
+.tlist li.dim { opacity: 1; }
+.tlist li.dim > * { opacity: .4; }
+.tlist li.grp.other { background: transparent; }
+.tlist li.editing .pill.kind { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .switch input { width: 20px; height: 20px; accent-color: var(--accent); }
